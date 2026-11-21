@@ -1,0 +1,1813 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RUTA URBANA — Video promocional</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: #07070c;
+    color: #f2e8c9;
+    font: 13px/1.5 ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  .shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 900px) {
+    .shell { grid-template-columns: 380px 1fr; align-items: start; }
+  }
+  header h1 { margin: 0 0 4px; font-size: 16px; letter-spacing: .14em; color: #ffd23f; }
+  header p { margin: 0; color: #9aa0b2; font-size: 12px; }
+  canvas {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 82dvh;
+    margin-inline: auto;
+    border: 2px solid #2e2e3e;
+    background: #0d0d14;
+    clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
+    box-shadow: 0 3px 0 #05050b;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button {
+    border: 2px solid #2e2e3e;
+    background: #14141d;
+    color: #f2e8c9;
+    padding: 10px 14px;
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: .06em;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #05050b;
+    clip-path: polygon(0 3px, 3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px));
+  }
+  button:active { transform: translateY(2px); box-shadow: none; }
+  button.primary { border-color: #ffd23f; color: #ffd23f; background: #241e10; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .status { min-height: 18px; margin-top: 8px; color: #9aa0b2; font-size: 12px; }
+  .status.ok { color: #7cfc5a; }
+  .status.err { color: #ff5d5d; }
+  .facts { margin-top: 16px; padding: 12px; border: 2px solid #2e2e3e; background: #1a1a24; }
+  .facts h2 { margin: 0 0 6px; font-size: 11px; letter-spacing: .18em; color: #ffd23f; }
+  .facts ul { margin: 0; padding-left: 16px; color: #9aa0b2; }
+  .facts li { margin: 3px 0; }
+  .facts b { color: #f2e8c9; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <header>
+      <h1>RUTA URBANA · PROMO</h1>
+      <p>Video vertical 9:16 · 1080×1920 · 24 s · Canvas + chiptune. Sin dependencias ni red.</p>
+    </header>
+
+    <div class="controls">
+      <button id="play" class="primary">▶ Reproducir</button>
+      <button id="rec">● Grabar WebM</button>
+      <button id="music">♪ Música: ON</button>
+      <button id="wav">♪ Descargar WAV</button>
+    </div>
+    <div id="status" class="status">Listo. Pulsa Reproducir para escuchar el tema; Grabar incluye música.</div>
+
+    <div class="facts">
+      <h2>CÓMO GRABAR</h2>
+      <ul>
+        <li>Usa <b>Chrome o Edge</b> de escritorio.</li>
+        <li>Formato vertical <b>1080×1920</b> (celular), 24 s.</li>
+        <li>Pulsa <b>● Grabar</b>: descarga <b>ruta-urbana-promo.webm</b> con video + música.</li>
+        <li>Convierte a MP4: <code>ffmpeg -i ruta-urbana-promo.webm -c:v libx264 -c:a aac -pix_fmt yuv420p promo.mp4</code></li>
+        <li>El navegador bloquea audio sin gesto: la música arranca al pulsar Reproducir/Grabar.</li>
+        <li><b>♪ Descargar WAV</b> exporta el tema de 24 s suelto.</li>
+      </ul>
+    </div>
+  </aside>
+
+  <main>
+    <canvas id="promo" width="1080" height="1920" aria-label="Video promocional de Ruta Urbana"></canvas>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('promo');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const playBtn = document.getElementById('play');
+  const recBtn = document.getElementById('rec');
+  const musicBtn = document.getElementById('music');
+  const wavBtn = document.getElementById('wav');
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const DURACION = 24;
+
+  const C = {
+    void: '#0d0d14',
+    panel: '#1a1a24',
+    line: '#2e2e3e',
+    parch: '#f2e8c9',
+    muted: '#9aa0b2',
+    gold: '#ffd23f',
+    goldOsc: '#c99a16',
+    xp: '#7cfc5a',
+    rojo: '#ff5d5d',
+    azul: '#6aa8ff',
+    ink: '#12121a',
+  };
+
+  /* ── utilidades ─────────────────────────────────────────────────────── */
+
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const ease = (t) => {
+    const x = clamp(t);
+    return x * x * (3 - 2 * x);
+  };
+  const easeOut = (t) => 1 - Math.pow(1 - clamp(t), 3);
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  function spacing(px) {
+    try { ctx.letterSpacing = px + 'px'; } catch { /* navegador viejo */ }
+  }
+
+  function text(str, x, y, opt = {}) {
+    const {
+      size = 28,
+      color = C.parch,
+      weight = 700,
+      align = 'left',
+      base = 'alphabetic',
+      space = 0,
+      alpha = 1,
+    } = opt;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.font = `${weight} ${size}px ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace`;
+    ctx.textAlign = align;
+    ctx.textBaseline = base;
+    spacing(space);
+    ctx.fillText(str, x, y);
+    spacing(0);
+    ctx.restore();
+  }
+
+  function medir(str, size = 28, weight = 700, space = 0) {
+    ctx.save();
+    ctx.font = `${weight} ${size}px ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace`;
+    spacing(space);
+    const w = ctx.measureText(str).width;
+    spacing(0);
+    ctx.restore();
+    return w;
+  }
+
+  function panel(x, y, w, h, opt = {}) {
+    const { fill = C.panel, border = C.line, cut = 18, glow = false, alpha = 1 } = opt;
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.beginPath();
+    ctx.moveTo(x + cut, y);
+    ctx.lineTo(x + w - cut, y);
+    ctx.lineTo(x + w, y + cut);
+    ctx.lineTo(x + w, y + h - cut);
+    ctx.lineTo(x + w - cut, y + h);
+    ctx.lineTo(x + cut, y + h);
+    ctx.lineTo(x, y + h - cut);
+    ctx.lineTo(x, y + cut);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = border;
+    ctx.stroke();
+    if (glow) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,210,63,0.35)';
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function chip(x, y, label, opt = {}) {
+    const { size = 26, color = C.parch, border = C.line, bg = '#14141d', icon = null } = opt;
+    const pad = 16;
+    const alto = size + 20;
+    const iconW = icon ? size + 12 : 0;
+    const w = medir(label, size) + pad * 2 + iconW;
+    ctx.save();
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, w, alto);
+    ctx.strokeStyle = border;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, w, alto);
+    if (icon) icon(x + pad, y + alto / 2, size * 0.55);
+    text(label, x + pad + iconW, y + alto - 13, { size, color });
+    ctx.restore();
+    return w;
+  }
+
+  function moneda(cx, cy, r) {
+    ctx.save();
+    ctx.fillStyle = '#8a6510';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.gold;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe887';
+    ctx.fillRect(cx - r * 0.3, cy - r * 0.3, r * 0.5, r * 0.5);
+    ctx.restore();
+  }
+
+  function estrella(cx, cy, r) {
+    ctx.save();
+    ctx.fillStyle = C.gold;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + r * 0.32, cy - r * 0.32);
+    ctx.lineTo(cx + r, cy);
+    ctx.lineTo(cx + r * 0.32, cy + r * 0.32);
+    ctx.lineTo(cx, cy + r);
+    ctx.lineTo(cx - r * 0.32, cy + r * 0.32);
+    ctx.lineTo(cx - r, cy);
+    ctx.lineTo(cx - r * 0.32, cy - r * 0.32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* ── avatar pixel-art (20×24) ───────────────────────────────────────── */
+
+  function drawAvatar(cx, cy, s, look = {}) {
+    const L = {
+      piel: '#f2c9a0',
+      pielS: '#d9a87c',
+      pelo: '#3a2a22',
+      estilo: 'corto',
+      gorro: null,
+      ropa: '#6a6ad4',
+      ropaEstilo: 'polera',
+      pant: '#2b3450',
+      zap: '#7a5230',
+      zapEstilo: 'botas',
+      mochila: null,
+      lentes: null,
+      barba: null,
+      aros: null,
+      tatuaje: null,
+      falda: false,
+      cuerpo: 'm',
+      caminar: false,
+      fase: 0,
+      direccion: 1,
+      ...look,
+    };
+    const tinte = (hex, f) => {
+      const n = parseInt(hex.slice(1), 16);
+      const ch = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+      return '#' + ((ch((n >> 16) & 255) << 16) | (ch((n >> 8) & 255) << 8) | ch(n & 255)).toString(16).padStart(6, '0');
+    };
+    const os = tinte;
+    const paso = L.caminar ? Math.round(Math.sin(L.fase) * 1.2) : 0;
+    const rebote = L.caminar ? Math.abs(Math.sin(L.fase)) * 0.55 : 0;
+    ctx.save();
+    if (L.direccion < 0) {
+      ctx.translate(cx * 2, 0);
+      ctx.scale(-1, 1);
+    }
+    const x0 = cx - 10 * s;
+    const y0 = cy - 12 * s - rebote * s;
+    const px = (x, y, w, h, c) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(x0 + x * s, y0 + y * s, w * s, h * s);
+    };
+
+    // Mochila discreta, detrás del torso: dos correas y bolsillos laterales.
+    if (L.mochila) {
+      px(2, 12, 2, 6, os(L.mochila, 0.62));
+      px(16, 12, 2, 6, os(L.mochila, 0.62));
+      px(2, 13, 1, 4, L.mochila);
+      px(17, 13, 1, 4, os(L.mochila, 0.82));
+      px(3, 12, 1, 1, os(L.mochila, 1.18));
+    }
+
+    if (L.estilo === 'largo') {
+      px(4, 2, 1, 8, os(L.pelo, 0.85));
+      px(15, 2, 1, 8, os(L.pelo, 0.85));
+    } else if (L.estilo === 'colita') {
+      px(15, 1, 2, 2, L.pelo);
+      px(16, 3, 1, 3, os(L.pelo, 0.82));
+    }
+
+    const piernaIzq = 6 + paso;
+    const piernaDer = 11 - paso;
+    if (L.falda) {
+      px(7 + paso, 20, 2, 2, L.piel);
+      px(11 - paso, 20, 2, 2, L.piel);
+      px(6, 17, 8, 1, os(L.pant, 1.1));
+      px(5, 18, 10, 2, L.pant);
+      px(5, 20, 10, 1, os(L.pant, 0.72));
+      px(5, 18, 1, 3, os(L.pant, 0.6));
+      px(14, 18, 1, 3, os(L.pant, 0.6));
+    } else {
+      px(piernaIzq, 18, 3, 4, L.pant);
+      px(piernaDer, 18, 3, 4, L.pant);
+      px(piernaIzq, 18, 3, 1, os(L.pant, 1.12));
+      px(piernaDer, 18, 3, 1, os(L.pant, 1.12));
+      px(piernaIzq + 2, 19, 1, 3, os(L.pant, 0.72));
+      px(piernaDer + 2, 19, 1, 3, os(L.pant, 0.72));
+      if (L.pantEstilo === 'cargo') {
+        px(piernaIzq, 20, 2, 1, os(L.pant, 0.64));
+        px(piernaDer, 20, 2, 1, os(L.pant, 0.64));
+      }
+    }
+
+    const suela = os(L.zap, L.zapEstilo === 'formales' ? 1.45 : 0.55);
+    if (L.zapEstilo === 'altas') {
+      px(piernaIzq, 19, 3, 3, L.zap);
+      px(piernaDer, 19, 3, 3, L.zap);
+      px(piernaIzq, 19, 1, 3, os(L.zap, 1.2));
+      px(piernaDer, 19, 1, 3, os(L.zap, 1.2));
+    }
+    const pieIzq = 5 + paso;
+    const pieDer = 11 - paso;
+    px(pieIzq, 21, 4, 1, os(L.zap, 0.75));
+    px(pieDer, 21, 4, 1, os(L.zap, 0.75));
+    px(pieIzq, 22, 4, 1, L.zap);
+    px(pieDer, 22, 4, 1, L.zap);
+    px(pieIzq - 1, 23, 5, 1, suela);
+    px(pieDer, 23, 5, 1, suela);
+    if (L.zapEstilo === 'zapatillas') {
+      px(pieIzq, 21, 2, 1, '#f2e8c9');
+      px(pieDer + 1, 21, 2, 1, '#f2e8c9');
+    }
+
+    const filas = L.cuerpo === 'f'
+      ? [[9, 6, 8], [10, 6, 8], [11, 6, 8], [12, 6, 8], [13, 7, 6], [14, 7, 6], [15, 6, 8], [16, 6, 8], [17, 6, 8]]
+      : [[9, 5, 10], [10, 5, 10], [11, 6, 8], [12, 6, 8], [13, 6, 8], [14, 6, 8], [15, 6, 8], [16, 6, 8], [17, 6, 8]];
+    for (const [y, x, w] of filas) {
+      px(x, y, w, 1, y === 9 ? os(L.ropa, 1.16) : L.ropa);
+      px(x + w - 1, y, 1, 1, os(L.ropa, 0.72));
+    }
+    if (L.ropaEstilo === 'camisa') {
+      px(8, 9, 2, 2, '#f2e8c9');
+      px(10, 9, 2, 2, '#f2e8c9');
+      px(10, 11, 1, 5, os(L.ropa, 1.16));
+      px(10, 12, 1, 1, '#ffd23f');
+      px(10, 15, 1, 1, '#ffd23f');
+    } else if (L.ropaEstilo === 'chaqueta') {
+      px(7, 10, 1, 7, os(L.ropa, 0.72));
+      px(12, 10, 1, 7, os(L.ropa, 0.72));
+      px(9, 10, 1, 7, '#c4d4e4');
+      px(10, 10, 1, 7, os(L.ropa, 1.2));
+      px(8, 10, 1, 2, os(L.ropa, 1.24));
+      px(11, 10, 1, 2, os(L.ropa, 1.24));
+    } else if (L.ropaEstilo === 'entallada') {
+      px(7, 15, 6, 1, os(L.ropa, 0.78));
+      px(8, 11, 1, 3, os(L.ropa, 1.2));
+      px(11, 11, 1, 3, os(L.ropa, 1.2));
+    }
+
+    const ropaOsc = os(L.ropa, 0.62);
+    const manga = L.caminar ? Math.round(Math.sin(L.fase + Math.PI) * 0.5) : 0;
+    px(4 + manga, 10, 2, 8, L.piel);
+    px(14 - manga, 10, 2, 8, L.piel);
+    px(4 + manga, 10, 2, 3, ropaOsc);
+    px(14 - manga, 10, 2, 3, ropaOsc);
+    px(4 + manga, 10, 1, 3, os(L.ropa, 0.5));
+    px(15 - manga, 10, 1, 3, os(L.ropa, 0.5));
+    px(4 + manga, 17, 2, 1, L.pielS);
+    px(14 - manga, 17, 2, 1, L.pielS);
+    if (L.mochila) {
+      px(8, 10, 1, 7, os(L.ropa, 0.48));
+      px(11, 10, 1, 7, os(L.ropa, 0.48));
+    }
+    if (L.tatuaje) {
+      px(4 + manga, 14, 1, 1, L.tatuaje);
+      px(5 + manga, 15, 1, 1, L.tatuaje);
+    }
+
+    if (L.ropaEstilo === 'vestido') {
+      px(7, 15, 6, 1, os(L.ropa, 0.84));
+      px(6, 16, 8, 2, L.ropa);
+      px(5, 18, 10, 2, L.ropa);
+      px(4, 20, 12, 1, os(L.ropa, 0.76));
+      px(5, 18, 1, 2, os(L.ropa, 1.18));
+      px(14, 18, 1, 2, os(L.ropa, 0.6));
+    }
+
+    px(6, 2, 8, 6, L.piel);
+    px(6, 7, L.cuerpo === 'f' ? 6 : 8, 1, L.pielS);
+    px(5, 4, 1, 2, L.piel);
+    px(14, 4, 1, 2, L.piel);
+    px(7, 3, 2, 1, '#8a5a45');
+    px(11, 3, 2, 1, '#8a5a45');
+    px(7, 4, 1, 1, '#3e2a26');
+    px(11, 4, 1, 1, '#3e2a26');
+    px(9, 5, 2, 1, L.pielS);
+    px(9, 6, 2, 1, '#b4635a');
+    px(9, 8, 2, 1, L.pielS);
+
+    if (L.barba) {
+      const b = L.barba;
+      if (b === 'bigote') {
+        px(8, 5, 4, 1, b === 'bigote' ? L.pelo : b);
+        px(8, 6, 4, 1, os(L.pelo, 0.82));
+      } else {
+        px(6, 6, 1, 2, L.pelo);
+        px(13, 6, 1, 2, L.pelo);
+        px(7, 7, 6, 1, L.pelo);
+        px(7, 8, 6, b === 'larga' ? 2 : 1, L.pelo);
+      }
+    }
+    if (L.aros) {
+      px(5, 5, 1, 2, L.aros);
+      px(14, 5, 1, 2, L.aros);
+      px(5, 5, 1, 1, os(L.aros, 1.3));
+    }
+
+    const pelo = L.pelo;
+    const claro = os(pelo, 1.22);
+    const oscuro = os(pelo, 0.82);
+    if (L.gorro) {
+      const g = L.gorro;
+      if (L.gorroEstilo === 'jockey') {
+        px(5, 0, 10, 2, g);
+        px(4, 2, 12, 1, os(g, 0.68));
+        px(12, 2, 5, 1, os(g, 0.62));
+        px(6, 0, 4, 1, os(g, 1.25));
+      } else if (L.gorroEstilo === 'lana') {
+        px(5, 0, 10, 2, g);
+        px(4, 2, 12, 1, os(g, 0.68));
+        px(8, 0, 4, 1, os(g, 1.25));
+        px(9, 0, 2, 1, '#f2e8c9');
+      } else {
+        px(4, 9, 12, 2, g);
+        px(4, 11, 12, 1, os(g, 0.7));
+        px(3, 0, 3, 3, g);
+        px(14, 0, 3, 3, g);
+        px(4, 0, 12, 2, g);
+        px(2, 2, 2, 5, g);
+        px(16, 2, 2, 5, g);
+        px(4, 2, 2, 5, os(g, 0.7));
+        px(14, 2, 2, 5, os(g, 0.7));
+        px(6, 2, 8, 1, os(g, 0.7));
+      }
+    } else if (L.estilo === 'afro') {
+      px(4, 0, 12, 2, pelo);
+      px(4, 1, 2, 4, pelo);
+      px(14, 1, 2, 4, pelo);
+      px(6, 0, 6, 1, claro);
+      px(4, 1, 1, 2, oscuro);
+    } else if (L.estilo === 'rapado') {
+      px(6, 1, 8, 1, pelo);
+      px(6, 2, 8, 1, oscuro);
+    } else {
+      px(5, 0, 10, 2, pelo);
+      px(5, 3, 1, 2, oscuro);
+      px(14, 3, 1, 2, oscuro);
+      px(7, 0, 5, 1, claro);
+      if (L.estilo === 'largo') {
+        px(5, 3, 1, 6, pelo);
+        px(14, 3, 1, 6, pelo);
+      } else if (L.estilo === 'flequillo') {
+        px(5, 2, 5, 1, pelo);
+        px(11, 2, 4, 1, pelo);
+        px(9, 2, 2, 1, claro);
+      }
+      if (L.estilo === 'colita') {
+        px(15, 1, 2, 1, pelo);
+        px(16, 2, 1, 3, pelo);
+        px(15, 5, 1, 2, oscuro);
+      }
+    }
+
+    if (L.lentes) {
+      px(6, 3, 3, 2, L.lentes);
+      px(11, 3, 3, 2, L.lentes);
+      px(9, 4, 2, 1, os(L.lentes, 0.72));
+      if (L.lentesEstilo === 'sol') {
+        px(7, 4, 1, 1, '#60758b');
+        px(12, 4, 1, 1, '#60758b');
+      }
+    }
+    ctx.restore();
+  }
+
+  /* ── escena 1: logo ─────────────────────────────────────────────────── */
+
+  function escenaLogo(t) {
+    const a = ease(t / 0.9);
+    const salida = 1 - ease((t - 2.6) / 0.6);
+    ctx.save();
+    ctx.globalAlpha = clamp(Math.min(a, salida));
+
+    ctx.fillStyle = C.void;
+    ctx.fillRect(0, 0, W, H);
+
+    // ciudad de fondo
+    ctx.globalAlpha *= 0.55;
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 14; j++) {
+        if ((i * 7 + j * 3) % 5 === 0) continue;
+        const x = 40 + i * 118;
+        const y = 120 + j * 128;
+        ctx.fillStyle = (i + j) % 3 === 0 ? '#151520' : '#111119';
+        ctx.fillRect(x, y, 94, 104);
+        ctx.strokeStyle = '#1f1f2b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, 94, 104);
+      }
+    }
+    ctx.globalAlpha = clamp(Math.min(a, salida));
+
+    const cx = W / 2;
+    // Destellos pixel y una onda radar preparan la entrada del título.
+    for (let i = 0; i < 28; i++) {
+      const fase = t * 1.8 + i * 2.399;
+      const radio = 240 + (i % 4) * 82;
+      const x = cx + Math.cos(fase) * radio;
+      const y = 875 + Math.sin(fase * 0.83) * 310;
+      ctx.globalAlpha = clamp(Math.min(a, salida)) * (0.2 + (Math.sin(fase * 2) + 1) * 0.18);
+      ctx.fillStyle = i % 5 === 0 ? C.xp : C.gold;
+      ctx.fillRect(Math.round(x / 8) * 8, Math.round(y / 8) * 8, i % 4 === 0 ? 10 : 5, i % 4 === 0 ? 10 : 5);
+    }
+    ctx.globalAlpha = clamp(Math.min(a, salida));
+    const titleY = 820 + (1 - easeOut(t / 0.9)) * 65;
+    text('RUTA', cx, titleY, { size: 128, color: C.gold, align: 'center', space: 10 });
+    text('URBANA', cx, titleY + 140, { size: 128, color: C.parch, align: 'center', space: 10 });
+
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(cx - 210, titleY + 180, 420, 5);
+
+    text('EL RPG DE TU VIDA', cx, titleY + 265, { size: 38, color: C.muted, align: 'center', space: 12 });
+    text('TU CIUDAD, POR NIVELES', cx, titleY + 330, { size: 27, color: C.gold, align: 'center', space: 4 });
+
+    // avatar caminando
+    drawAvatar(cx, 1450 + Math.sin(t * 4) * 8, 11, {
+      gorro: '#d6a934',
+      gorroEstilo: 'capucha',
+      ropa: '#344769',
+      ropaEstilo: 'chaqueta',
+      pant: '#2b3450',
+      zap: '#8593a5',
+      zapEstilo: 'zapatillas',
+      mochila: '#4f5e4a',
+      caminar: true,
+      fase: t * 8,
+    });
+    ctx.restore();
+  }
+
+  /* ── escena 2: mapa + niebla ────────────────────────────────────────── */
+
+  const REJILLA = 120;
+  const reveladas = new Set();
+  const popups = [];
+  let ultimoPopup = -1;
+
+  const CAMINO = [
+    [520, 1810],
+    [520, 1600],
+    [260, 1600],
+    [260, 1330],
+    [520, 1330],
+    [520, 1060],
+    [520, 790],
+  ];
+
+  function puntoCamino(t) {
+    const tramos = [];
+    let total = 0;
+    for (let i = 1; i < CAMINO.length; i++) {
+      const d = Math.hypot(CAMINO[i][0] - CAMINO[i - 1][0], CAMINO[i][1] - CAMINO[i - 1][1]);
+      tramos.push(d);
+      total += d;
+    }
+    let resto = clamp(t) * total;
+    for (let i = 0; i < tramos.length; i++) {
+      if (resto <= tramos[i]) {
+        const f = resto / tramos[i];
+        return {
+          x: lerp(CAMINO[i][0], CAMINO[i + 1][0], f),
+          y: lerp(CAMINO[i][1], CAMINO[i + 1][1], f),
+        };
+      }
+      resto -= tramos[i];
+    }
+    const ult = CAMINO[CAMINO.length - 1];
+    return { x: ult[0], y: ult[1] };
+  }
+
+  function rutaDesde(t) {
+    const longitudes = [];
+    let total = 0;
+    for (let i = 1; i < CAMINO.length; i++) {
+      const d = Math.hypot(CAMINO[i][0] - CAMINO[i - 1][0], CAMINO[i][1] - CAMINO[i - 1][1]);
+      longitudes.push(d);
+      total += d;
+    }
+    let recorrido = clamp(t) * total;
+    const puntos = [puntoCamino(t)];
+    for (let i = 0; i < longitudes.length; i++) {
+      if (recorrido < longitudes[i]) {
+        puntos.push(CAMINO[i + 1]);
+      } else {
+        recorrido -= longitudes[i];
+      }
+    }
+    return puntos;
+  }
+
+  let fogCanvas = null;
+  function niebla(punto, t) {
+    if (!fogCanvas) {
+      fogCanvas = document.createElement('canvas');
+      fogCanvas.width = W;
+      fogCanvas.height = H;
+    }
+    const fc = fogCanvas.getContext('2d');
+    fc.globalCompositeOperation = 'source-over';
+    fc.clearRect(0, 0, W, H);
+    fc.fillStyle = 'rgba(5,5,12,0.76)';
+    fc.fillRect(0, 0, W, H);
+
+    // revelado acumulado por cercanía (el avatar deja celdas abiertas)
+    const ix0 = Math.floor(punto.x / REJILLA);
+    const iy0 = Math.floor(punto.y / REJILLA);
+    for (let ix = ix0 - 3; ix <= ix0 + 3; ix++) {
+      for (let iy = iy0 - 3; iy <= iy0 + 3; iy++) {
+        const cx = (ix + 0.5) * REJILLA;
+        const cy = (iy + 0.5) * REJILLA;
+        if (Math.hypot(cx - punto.x, cy - punto.y) > Math.min(330, 250 + t * 20)) continue;
+        const clave = ix + ',' + iy;
+        if (!reveladas.has(clave)) {
+          reveladas.add(clave);
+          if (t - ultimoPopup > 0.16) {
+            popups.push({ x: cx, y: cy, vida: 1, texto: '+2 XP' });
+            ultimoPopup = t;
+          }
+        }
+      }
+    }
+
+    fc.globalCompositeOperation = 'destination-out';
+    for (const clave of reveladas) {
+      const [ix, iy] = clave.split(',').map(Number);
+      const cx = (ix + 0.5) * REJILLA;
+      const cy = (iy + 0.5) * REJILLA;
+      const g = fc.createRadialGradient(cx, cy, 24, cx, cy, 146);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.72, 'rgba(0,0,0,0.92)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      fc.fillStyle = g;
+      fc.beginPath();
+      fc.arc(cx, cy, 148, 0, Math.PI * 2);
+      fc.fill();
+    }
+    fc.globalCompositeOperation = 'source-over';
+    ctx.drawImage(fogCanvas, 0, 0);
+  }
+
+  function dibujarMapa() {
+    ctx.fillStyle = '#111820';
+    ctx.fillRect(0, 0, W, H);
+
+    // Lotes y edificios: fachadas, techos, patios y luces para dar escala urbana.
+    const columnas = [30, 290, 550, 810];
+    const filas = [38, 300, 570, 840, 1110, 1380, 1650];
+    const edificios = ['#28313a', '#30323d', '#2c3540', '#303640', '#272f39'];
+    for (let r = 0; r < filas.length; r++) {
+      for (let c = 0; c < columnas.length; c++) {
+        const x = columnas[c];
+        const y = filas[r];
+        if (c === 2 && r === 2) {
+          // Plaza del barrio con senderos y árboles.
+          ctx.fillStyle = '#1b3028';
+          ctx.fillRect(x, y, 180, 180);
+          ctx.strokeStyle = '#526358';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 7, y + 7, 166, 166);
+          ctx.strokeStyle = '#6c7965';
+          ctx.lineWidth = 7;
+          ctx.beginPath();
+          ctx.moveTo(x + 18, y + 92);
+          ctx.lineTo(x + 162, y + 92);
+          ctx.moveTo(x + 90, y + 18);
+          ctx.lineTo(x + 90, y + 162);
+          ctx.stroke();
+          for (let n = 0; n < 8; n++) {
+            const tx = x + 25 + (n % 4) * 42;
+            const ty = y + 28 + Math.floor(n / 4) * 110;
+            ctx.fillStyle = '#244d37';
+            ctx.beginPath();
+            ctx.arc(tx, ty, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#4f8050';
+            ctx.fillRect(tx - 3, ty - 3, 6, 6);
+          }
+          continue;
+        }
+        const seed = (r * 13 + c * 7) % 5;
+        ctx.fillStyle = '#1c252e';
+        ctx.fillRect(x, y, 180, 180);
+        ctx.strokeStyle = '#38404a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 5, y + 5, 170, 170);
+
+        const padX = 13 + (seed % 2) * 8;
+        const padY = 14 + (seed % 3) * 5;
+        const bw = 126 + (seed % 3) * 12;
+        const bh = 116 + ((seed + 1) % 3) * 14;
+        const bx = x + padX + ((seed * 9) % 16);
+        const by = y + padY + ((seed * 5) % 14);
+        ctx.fillStyle = '#0c1118';
+        ctx.fillRect(bx + 6, by + 7, bw, bh);
+        ctx.fillStyle = edificios[seed];
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = '#47515b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = '#424853';
+        ctx.fillRect(bx + 8, by + 8, bw - 16, 7);
+        ctx.fillStyle = seed % 2 ? '#647080' : '#4e5c67';
+        for (let wx = bx + 14; wx < bx + bw - 10; wx += 27) {
+          ctx.fillRect(wx, by + 26, 8, 7);
+          ctx.fillRect(wx, by + 48, 8, 7);
+        }
+        if (seed === 1 || seed === 4) {
+          ctx.fillStyle = '#56616a';
+          ctx.fillRect(bx + bw - 26, by + bh - 28, 17, 18);
+          ctx.fillStyle = '#3b4651';
+          ctx.fillRect(bx + 12, by + bh - 18, 36, 6);
+        }
+      }
+    }
+
+    // Avenidas principales, bordes de vereda y línea central discontinua.
+    ctx.lineCap = 'round';
+    for (const x of [260, 520, 780, 1040]) {
+      ctx.strokeStyle = '#555664';
+      ctx.lineWidth = 66;
+      ctx.beginPath(); ctx.moveTo(x, -20); ctx.lineTo(x, H + 20); ctx.stroke();
+      ctx.strokeStyle = '#333943';
+      ctx.lineWidth = 56;
+      ctx.beginPath(); ctx.moveTo(x, -20); ctx.lineTo(x, H + 20); ctx.stroke();
+      ctx.strokeStyle = '#8f8b79';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 21]);
+      ctx.beginPath(); ctx.moveTo(x, -20); ctx.lineTo(x, H + 20); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const y of [250, 520, 790, 1060, 1330, 1600, 1870]) {
+      ctx.strokeStyle = '#555664';
+      ctx.lineWidth = 66;
+      ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(W + 20, y); ctx.stroke();
+      ctx.strokeStyle = '#333943';
+      ctx.lineWidth = 56;
+      ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(W + 20, y); ctx.stroke();
+      ctx.strokeStyle = '#8f8b79';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 21]);
+      ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(W + 20, y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Cruces peatonales en las intersecciones del recorrido.
+    for (const [x, y] of [[520, 1600], [260, 1600], [260, 1330], [520, 1330], [520, 1060], [520, 790]]) {
+      ctx.fillStyle = 'rgba(226,224,207,0.72)';
+      for (let stripe = -3; stripe <= 3; stripe++) {
+        ctx.fillRect(x + stripe * 12 - 3, y - 38, 6, 18);
+        ctx.fillRect(x + stripe * 12 - 3, y + 20, 6, 18);
+      }
+    }
+
+    // Rótulos de calles y lugares de interés, como un mapa de juego legible.
+    text('HUÉRFANOS', 390, 242, { size: 16, color: '#d5caa3', align: 'center', space: 2 });
+    text('MONEDA', 650, 512, { size: 16, color: '#d5caa3', align: 'center', space: 2 });
+    text('MORANDÉ', 255, 1018, { size: 15, color: '#d5caa3', align: 'center', space: 2 });
+    text('PLAZA', 640, 654, { size: 20, color: '#b8d8ae', align: 'center', space: 3 });
+
+    // Farmacia de barrio.
+    ctx.fillStyle = '#245b4b';
+    ctx.fillRect(844, 866, 24, 66);
+    ctx.fillRect(823, 887, 66, 24);
+    text('FARMACIA', 900, 1000, { size: 17, color: '#a6d9bb', space: 1 });
+
+    // Registro Civil señalado en la manzana próxima al destino.
+    ctx.fillStyle = '#b89c52';
+    ctx.fillRect(578, 881, 27, 31);
+    ctx.fillStyle = '#e7d7a3';
+    ctx.fillRect(584, 888, 15, 18);
+    text('REGISTRO CIVIL', 635, 960, { size: 16, color: '#f2e8c9', space: 1 });
+
+    // Textura cartográfica sutil y brújula de esquina.
+    ctx.strokeStyle = 'rgba(170,184,190,0.07)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < H; y += 36) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.fillStyle = '#d6d1bd';
+    ctx.beginPath();
+    ctx.moveTo(1018, 95); ctx.lineTo(1030, 128); ctx.lineTo(1018, 121); ctx.lineTo(1006, 128);
+    ctx.closePath(); ctx.fill();
+    text('N', 1018, 82, { size: 16, color: '#d6d1bd', align: 'center' });
+  }
+
+  function pin(x, y, color = C.gold) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + 4, 18, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 42);
+    ctx.bezierCurveTo(x - 26, y - 42, x - 28, y - 10, x, y);
+    ctx.bezierCurveTo(x + 28, y - 10, x + 26, y - 42, x, y - 42);
+    ctx.fill();
+    ctx.fillStyle = C.void;
+    ctx.beginPath();
+    ctx.arc(x, y - 28, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.font = '700 18px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', x, y - 28);
+    ctx.restore();
+  }
+
+  function escenaMapa(t, global) {
+    dibujarMapa();
+
+    const avance = easeOut(t / 3.8);
+    const punto = puntoCamino(avance);
+    const delante = puntoCamino(Math.min(1, avance + 0.018));
+    const direccion = delante.x < punto.x - 1 ? -1 : 1;
+    niebla(punto, global);
+
+    // Ruta sobre las calles, con halo suave y guiones que avanzan.
+    const puntosRuta = rutaDesde(avance);
+    ctx.save();
+    ctx.beginPath();
+    puntosRuta.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y - 12) : ctx.lineTo(p[0] ?? p.x, p[1] ?? p.y));
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255,210,63,0.22)';
+    ctx.lineWidth = 22;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,220,105,0.96)';
+    ctx.lineWidth = 5;
+    ctx.setLineDash([13, 15]);
+    ctx.lineDashOffset = -t * 42;
+    ctx.stroke();
+    ctx.restore();
+    pin(520, 790);
+    text('DESTINO', 520, 730, { size: 15, color: C.gold, align: 'center', space: 2 });
+
+    // calidez alrededor del avatar
+    const g = ctx.createRadialGradient(punto.x, punto.y, 0, punto.x, punto.y, 190);
+    g.addColorStop(0, 'rgba(255,210,63,0.18)');
+    g.addColorStop(1, 'rgba(255,210,63,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(punto.x, punto.y, 190, 0, Math.PI * 2);
+    ctx.fill();
+
+    // popups de XP
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.vida -= 0.022;
+      if (p.vida <= 0) popups.splice(i, 1);
+      ctx.save();
+      ctx.globalAlpha = clamp(p.vida);
+      text(p.texto, p.x, p.y - (1 - p.vida) * 80, { size: 30, color: C.xp, align: 'center', alpha: 1 });
+      ctx.restore();
+    }
+
+    drawAvatar(punto.x, punto.y - 20, 7, {
+      gorro: '#d6a934',
+      ropa: '#344769',
+      ropaEstilo: 'chaqueta',
+      pant: '#2b3450',
+      zap: '#8593a5',
+      zapEstilo: 'zapatillas',
+      mochila: '#4f5e4a',
+      caminar: true,
+      fase: t * 9,
+      direccion,
+    });
+
+    // HUD superior
+    panel(50, 50, 470, 96, { fill: 'rgba(26,26,36,0.92)' });
+    ctx.fillStyle = C.xp;
+    ctx.fillRect(78, 84, 18, 18);
+    text(126 + reveladas.size + ' celdas', 112, 104, { size: 30 });
+    text('+2 XP', 330, 104, { size: 28, color: C.xp });
+
+    panel(700, 50, 330, 96, { fill: 'rgba(26,26,36,0.92)' });
+    text('Nv 4', 738, 104, { size: 34, color: C.gold });
+    text('90/182', 838, 104, { size: 26, color: C.muted });
+    ctx.fillStyle = C.line;
+    ctx.fillRect(738, 116, 254, 10);
+    ctx.fillStyle = C.xp;
+    ctx.fillRect(738, 116, 254 * 0.49, 10);
+
+    // banner de llegada (entra al final)
+    const b = ease((t - 2.5) / 0.6);
+    if (b > 0) {
+      ctx.save();
+      ctx.globalAlpha = clamp(b);
+      const y = lerp(300, 210, easeOut(b));
+      panel(50, y, 980, 150, { fill: 'rgba(26,26,36,0.96)', border: C.gold, glow: true });
+      text('● LLEGASTE · ~68 M', 84, y + 46, { size: 26, color: C.gold, space: 2 });
+      text('Registro Civil centro · Renovar cédula', 84, y + 92, { size: 32 });
+      text('Toca para abrir la misión →', 84, y + 128, { size: 24, color: C.muted });
+      ctx.restore();
+    }
+
+    // viñeta
+    const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.24, W / 2, H / 2, H * 0.72);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(3,3,8,0.52)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  /* ── escena 3: misión ───────────────────────────────────────────────── */
+
+  function escenaMision(t) {
+    ctx.fillStyle = C.void;
+    ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 17; j++) {
+        ctx.fillStyle = (i + j) % 3 === 0 ? '#111119' : '#0f0f17';
+        ctx.fillRect(i * REJILLA + 10, j * REJILLA + 6, REJILLA - 20, REJILLA - 14);
+      }
+    }
+
+    const entra = easeOut(t / 0.7);
+    const y = lerp(260, 170, entra);
+    ctx.save();
+    ctx.globalAlpha = clamp(entra);
+    panel(70, y, 940, 1120, { fill: '#1a1a24', border: C.line });
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(70, y, 940, 8);
+
+    text('📋 TRÁMITE', 110, y + 74, { size: 26, color: C.muted, space: 2 });
+    text('● ACTIVA', 830, y + 74, { size: 26, color: C.gold });
+
+    text('Renovar cédula', 110, y + 168, { size: 58 });
+    text('Tu carnet venció y todo trámite lo pide.', 110, y + 226, { size: 28, color: C.muted });
+    text('Hora, mesón, foto y firma.', 110, y + 268, { size: 28, color: C.muted });
+
+    let cx = 110;
+    const cy = y + 310;
+    cx += chip(cx, cy, '+100 XP', { color: C.gold, border: C.gold }) + 14;
+    cx += chip(cx, cy, '+320', { color: C.gold, icon: (x, yy) => moneda(x + 8, yy, 11) }) + 14;
+    cx += chip(cx, cy, '🎁 Lentes redondos', { color: C.parch, border: C.line }) + 14;
+
+    const pasos = [
+      '01  Revisa tu mochila',
+      '02  Llega al Registro Civil',
+      '03  Habla en el mesón',
+      '04  Foto, huella y firma',
+      '05  Guarda el comprobante',
+    ];
+    let py = y + 430;
+    pasos.forEach((p, i) => {
+      const hecho = i < Math.min(3, Math.max(0, Math.floor((t - 0.8) * 2)));
+      ctx.strokeStyle = hecho ? C.xp : C.line;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(110, py - 30, 46, 46);
+      if (hecho) {
+        ctx.fillStyle = C.xp;
+        ctx.fillRect(110, py - 30, 46, 46);
+        text('✓', 133, py + 8, { size: 30, color: C.ink, align: 'center' });
+      } else {
+        text(String(i + 1), 133, py + 8, { size: 26, color: C.muted, align: 'center' });
+      }
+      text(p, 180, py + 4, { size: 30, color: hecho ? C.xp : C.parch });
+      py += 96;
+    });
+
+    const listo = t > 2.2;
+    const by = y + 930;
+    panel(110, by, 860, 110, listo ? { fill: '#241e10', border: C.gold } : { fill: '#14141d', border: C.line });
+    text(listo ? '🏁 COMPLETAR (+100 XP · +320 fichas)' : '🏁 COMPLETAR (+100 XP)', 540, by + 68, {
+      size: 34,
+      color: listo ? C.gold : C.muted,
+      align: 'center',
+    });
+    ctx.restore();
+
+    text('CADA MISIÓN PAGA XP, FICHAS Y A VECES UN PREMIO', W / 2, 1430, {
+      size: 28,
+      color: C.muted,
+      align: 'center',
+      space: 2,
+      alpha: clamp(entra),
+    });
+    text('MISIONES DE LA VIDA REAL, CON GUION', W / 2, 1490, {
+      size: 24,
+      color: C.gold,
+      align: 'center',
+      space: 3,
+      alpha: clamp(entra),
+    });
+  }
+
+  /* ── escena 4: subida de nivel ──────────────────────────────────────── */
+
+  function escenaNivel(t) {
+    ctx.fillStyle = '#07070c';
+    ctx.fillRect(0, 0, W, H);
+
+    const flash = clamp(1 - t / 0.55);
+    if (flash > 0) {
+      const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.8);
+      g.addColorStop(0, `rgba(255,210,63,${0.55 * flash})`);
+      g.addColorStop(1, 'rgba(255,210,63,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    const entra = easeOut(t / 0.45);
+    const escala = lerp(0.86, 1, entra);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(escala, escala);
+    ctx.translate(-W / 2, -H / 2);
+
+    panel(110, 430, 860, 1060, { fill: C.panel, border: C.gold, glow: true });
+    text('SUBISTE DE NIVEL', W / 2, 540, { size: 34, color: C.gold, align: 'center', space: 10 });
+
+    const pulso = 0.5 + Math.sin(t * 5) * 0.18;
+    const g = ctx.createRadialGradient(W / 2, 940, 20, W / 2, 940, 360);
+    g.addColorStop(0, `rgba(255,210,63,${pulso})`);
+    g.addColorStop(1, 'rgba(255,210,63,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(W / 2, 940, 360, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawAvatar(W / 2, 950 + Math.sin(t * 6) * 10, 13, {
+      pelo: '#5a3a22',
+      estilo: 'flequillo',
+      ropa: '#c24a6a',
+      ropaEstilo: 'vestido',
+      pant: '#3a3a6a',
+      zap: '#4a2a1a',
+      zapEstilo: 'altas',
+      aros: C.gold,
+      mochila: null,
+      cuerpo: 'f',
+    });
+
+    text('NIVEL', W / 2, 1245, { size: 26, color: C.muted, align: 'center', space: 14 });
+    text('4', W / 2, 1390, { size: 170, color: C.gold, align: 'center' });
+    text('Viajero', W / 2, 1460, { size: 34, align: 'center' });
+
+    if (t > 1.4) {
+      text('TOCA PARA SEGUIR', W / 2, 1660, {
+        size: 24,
+        color: C.gold,
+        align: 'center',
+        space: 4,
+        alpha: clamp((t - 1.4) / 0.4) * (0.6 + Math.sin(t * 4) * 0.25),
+      });
+    }
+    ctx.restore();
+  }
+
+  /* ── escena 5: vestuario ────────────────────────────────────────────── */
+
+  const LOOKS = [
+    {
+      nombre: 'EXPLORADOR',
+      detalle: 'Listo para descubrir otra ruta.',
+      items: [
+        { slot: 'GORRO', nombre: 'Capucha dorada', color: '#d6a934', meta: 'BASE' },
+        { slot: 'ROPA', nombre: 'Chaqueta de cuero', color: '#1a1a24', meta: 'PREMIO MISIÓN' },
+        { slot: 'MOCHILA', nombre: 'Mochila negra', color: '#1a1a24', meta: 'NIVEL 1' },
+      ],
+      gorro: '#d6a934',
+      gorroEstilo: 'capucha',
+      pelo: '#3a2a22',
+      ropa: '#344769',
+      ropaEstilo: 'chaqueta',
+      pant: '#2b3450',
+      zap: '#8593a5',
+      zapEstilo: 'zapatillas',
+      mochila: '#4f5e4a',
+      cuerpo: 'm',
+    },
+    {
+      nombre: 'ESTILO URBANO',
+      detalle: 'Combina pelo, vestido y accesorios.',
+      items: [
+        { slot: 'PELO', nombre: 'Flequillo', color: '#5a3a22', meta: 'NIVEL 1' },
+        { slot: 'ROPA', nombre: 'Vestido', color: '#c24a6a', meta: 'NIVEL 3' },
+        { slot: 'AROS', nombre: 'Aros de perla', color: '#f2e8c9', meta: 'NIVEL 1' },
+      ],
+      pelo: '#5a3a22',
+      estilo: 'flequillo',
+      ropa: '#c24a6a',
+      ropaEstilo: 'vestido',
+      pant: '#3a3a6a',
+      zap: '#4a2a1a',
+      zapEstilo: 'altas',
+      aros: '#f2e8c9',
+      cuerpo: 'f',
+    },
+    {
+      nombre: 'RUTA NOCTURNA',
+      detalle: 'Equipo cómodo para misiones largas.',
+      items: [
+        { slot: 'PELO', nombre: 'Afro', color: '#241a14', meta: 'NIVEL 3' },
+        { slot: 'LENTES', nombre: 'Lentes de sol', color: '#26232c', meta: 'NIVEL 2' },
+        { slot: 'ZAPATOS', nombre: 'Zapatillas', color: '#e6dfc9', meta: 'NIVEL 1' },
+      ],
+      pelo: '#241a14',
+      estilo: 'afro',
+      gorro: '#3d566d',
+      gorroEstilo: 'jockey',
+      ropa: '#2e8c4a',
+      ropaEstilo: 'chaqueta',
+      pant: '#4a5a3a',
+      pantEstilo: 'cargo',
+      zap: '#e6dfc9',
+      zapEstilo: 'zapatillas',
+      lentes: '#26232c',
+      lentesEstilo: 'sol',
+      tatuaje: '#83c5a5',
+      mochila: '#d6a934',
+      cuerpo: 'm',
+    },
+    {
+      nombre: 'CLÁSICO',
+      detalle: 'Un look formal para resolver trámites.',
+      items: [
+        { slot: 'PELO', nombre: 'Canas', color: '#c8c8c8', meta: 'NIVEL 3' },
+        { slot: 'ROPA', nombre: 'Camisa', color: '#f2e8c9', meta: 'NIVEL 2' },
+        { slot: 'BARBA', nombre: 'Bigote', color: '#6b4a3a', meta: 'GRATIS' },
+      ],
+      pelo: '#c8c8c8',
+      estilo: 'corto',
+      ropa: '#f2e8c9',
+      ropaEstilo: 'camisa',
+      pant: '#343d53',
+      zap: '#4a3022',
+      zapEstilo: 'formales',
+      barba: 'bigote',
+      lentes: '#c99a16',
+      cuerpo: 'm',
+    },
+  ];
+
+  function iconoPrenda(x, y, slot, color) {
+    const px = (a, b, w, h, c) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(x + a, y + b, w, h);
+    };
+    const sombra = (f) => {
+      const n = parseInt(color.slice(1), 16);
+      const ch = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+      return '#' + ((ch((n >> 16) & 255) << 16) | (ch((n >> 8) & 255) << 8) | ch(n & 255)).toString(16).padStart(6, '0');
+    };
+    if (slot === 'PELO' || slot === 'GORRO') {
+      px(12, 8, 48, 18, sombra(0.65));
+      px(18, 4, 38, 20, color);
+      px(24, 8, 18, 4, sombra(1.25));
+      px(10, 20, 7, 22, color);
+      px(55, 20, 7, 22, sombra(0.78));
+    } else if (slot === 'LENTES') {
+      px(8, 15, 25, 18, color);
+      px(39, 15, 25, 18, color);
+      px(32, 21, 9, 5, sombra(0.72));
+      px(13, 19, 7, 5, '#8cc0ff');
+      px(45, 19, 7, 5, '#8cc0ff');
+    } else if (slot === 'ZAPATOS') {
+      px(8, 27, 28, 13, color);
+      px(38, 27, 28, 13, color);
+      px(5, 40, 33, 6, sombra(0.58));
+      px(36, 40, 33, 6, sombra(0.58));
+      px(13, 29, 6, 4, sombra(1.28));
+      px(43, 29, 6, 4, sombra(1.28));
+    } else if (slot === 'MOCHILA') {
+      px(18, 8, 40, 38, sombra(0.62));
+      px(22, 12, 32, 30, color);
+      px(27, 16, 22, 10, sombra(1.18));
+      px(30, 30, 16, 3, sombra(0.7));
+    } else if (slot === 'BARBA') {
+      px(17, 6, 42, 35, '#f2c9a0');
+      px(17, 28, 8, 11, color);
+      px(51, 28, 8, 11, color);
+      px(23, 32, 29, 10, color);
+      px(29, 38, 17, 7, sombra(0.72));
+    } else if (slot === 'AROS') {
+      px(19, 8, 38, 38, '#f2c9a0');
+      px(11, 20, 7, 14, color);
+      px(58, 20, 7, 14, color);
+      px(12, 20, 4, 4, sombra(1.3));
+      px(59, 20, 4, 4, sombra(1.3));
+    } else if (slot === 'TATUAJE') {
+      px(14, 9, 49, 37, '#f2c9a0');
+      px(14, 12, 11, 32, color);
+      px(23, 17, 7, 4, sombra(0.7));
+      px(29, 23, 7, 4, sombra(0.7));
+      px(35, 29, 7, 4, sombra(0.7));
+    } else if (slot === 'PANTALÓN') {
+      px(18, 8, 40, 15, color);
+      px(19, 23, 16, 24, color);
+      px(42, 23, 16, 24, color);
+      px(35, 22, 7, 25, sombra(0.7));
+    } else {
+      px(18, 9, 40, 36, color);
+      px(8, 12, 12, 24, sombra(0.78));
+      px(56, 12, 12, 24, sombra(0.78));
+      px(35, 11, 5, 24, sombra(0.7));
+      px(23, 13, 7, 5, sombra(1.24));
+    }
+  }
+
+  function escenaVestuario(t) {
+    ctx.fillStyle = '#c3bcab';
+    ctx.fillRect(0, 0, W, H);
+    const g = ctx.createRadialGradient(W / 2, 700, 100, W / 2, 700, 780);
+    g.addColorStop(0, '#e9e4d4');
+    g.addColorStop(1, '#c3bcab');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    const entra = easeOut(t / 0.6);
+    ctx.save();
+    ctx.globalAlpha = clamp(entra);
+
+    panel(60, 140, 960, 1560, { fill: '#f2e8c9', border: C.gold, cut: 26 });
+
+    text('VESTUARIO', 112, 238, { size: 50, color: C.void });
+    text('TU AVATAR, TUS REGLAS', 114, 279, { size: 20, color: '#746b58', space: 3 });
+    moneda(782, 216, 19);
+    text('1830 FICHAS', 813, 227, { size: 25, color: C.void });
+
+    const idx = Math.min(LOOKS.length - 1, Math.floor(t / 1.02));
+    const look = LOOKS[idx];
+    const tarjetaX = 92;
+    const tarjetaY = 310;
+    panel(tarjetaX, tarjetaY, 896, 610, { fill: '#e9e4d4', border: C.goldOsc, cut: 22 });
+    ctx.fillStyle = '#dbd4c2';
+    ctx.fillRect(tarjetaX + 23, tarjetaY + 24, 370, 562);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(tarjetaX + 210, tarjetaY + 500, 115, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawAvatar(tarjetaX + 210, tarjetaY + 350 + Math.sin(t * 7) * 4, 13, {
+      ...look,
+      caminar: true,
+      fase: t * 7,
+    });
+    panel(tarjetaX + 422, tarjetaY + 28, 438, 78, { fill: '#f8f4e8', border: '#cbc3af', cut: 10 });
+    text('LOOK ' + (idx + 1) + ' / ' + LOOKS.length, tarjetaX + 445, tarjetaY + 59, { size: 18, color: '#766d5a', space: 2 });
+    text(look.nombre, tarjetaX + 445, tarjetaY + 91, { size: 33, color: C.void });
+    text(look.detalle, tarjetaX + 445, tarjetaY + 158, { size: 20, color: '#6a6355' });
+
+    text('NOMBRE', tarjetaX + 445, tarjetaY + 220, { size: 17, color: '#756d5b', space: 3 });
+    panel(tarjetaX + 445, tarjetaY + 236, 370, 64, { fill: '#ffffff', border: '#b9b3a1', cut: 8 });
+    text('Viajero', tarjetaX + 465, tarjetaY + 278, { size: 27, color: C.void });
+
+    text('SEXO', tarjetaX + 445, tarjetaY + 347, { size: 17, color: '#756d5b', space: 3 });
+    const mujer = look.cuerpo === 'f';
+    panel(tarjetaX + 445, tarjetaY + 362, 166, 58, mujer ? { fill: '#f2c2cc', border: '#c24a6a', cut: 8 } : { fill: '#f8f4e8', border: '#b9b3a1', cut: 8 });
+    text('♀ MUJER', tarjetaX + 528, tarjetaY + 399, { size: 20, color: C.void, align: 'center' });
+    panel(tarjetaX + 624, tarjetaY + 362, 191, 58, !mujer ? { fill: '#c6d2ec', border: '#3d6fc4', cut: 8 } : { fill: '#f8f4e8', border: '#b9b3a1', cut: 8 });
+    text('♂ HOMBRE', tarjetaX + 720, tarjetaY + 399, { size: 20, color: C.void, align: 'center' });
+    text('Nv. 4  ·  42 cosméticos', tarjetaX + 445, tarjetaY + 480, { size: 20, color: '#6a6355' });
+    text('Misiones y exploración desbloquean ropa.', tarjetaX + 445, tarjetaY + 525, { size: 16, color: '#7d7566' });
+
+    text('10 RANURAS PARA PERSONALIZAR', W / 2, 1010, { size: 25, color: C.void, align: 'center', space: 3 });
+    const tabs = ['PELO', 'GORRO', 'LENTES', 'ROPA', 'PANTALÓN', 'ZAPATOS', 'AROS', 'MOCHILA'];
+    let tx = 105;
+    for (const tab of tabs) {
+      const w = medir(tab, 16) + 28;
+      if (tx + w > 1000) break;
+      const activo = tab === look.items[0].slot || tab === look.items[1].slot;
+      panel(tx, 1030, w, 42, activo ? { fill: '#241e10', border: C.goldOsc, cut: 7 } : { fill: '#fffdf6', border: '#c8c0ad', cut: 7 });
+      text(tab, tx + w / 2, 1057, { size: 15, color: activo ? C.goldOsc : '#5a5448', align: 'center', space: 1 });
+      tx += w + 7;
+    }
+
+    look.items.forEach((item, i) => {
+      const ix = 92 + i * 302;
+      const iy = 1102;
+      const actual = Math.sin(t * 7 + i * 1.5) > 0.2;
+      panel(ix, iy, 282, 360, { fill: '#fffdf6', border: actual ? C.goldOsc : '#c8c0ad', cut: 15 });
+      ctx.fillStyle = item.color;
+      ctx.fillRect(ix + 20, iy + 22, 242, 8);
+      iconoPrenda(ix + 20, iy + 60, item.slot, item.color);
+      text(item.slot, ix + 104, iy + 84, { size: 15, color: '#817967', space: 2 });
+      text(item.nombre, ix + 104, iy + 123, { size: 21, color: C.void });
+      text(item.meta, ix + 104, iy + 160, { size: 15, color: '#8b7440', space: 1 });
+      panel(ix + 18, iy + 215, 246, 82, actual ? { fill: '#241e10', border: C.goldOsc, cut: 8 } : { fill: '#f2e8c9', border: '#c8c0ad', cut: 8 });
+      text(actual ? 'EQUIPADO' : 'DESBLOQUEA JUGANDO', ix + 141, iy + 265, { size: actual ? 16 : 13, color: actual ? C.gold : '#6a6355', align: 'center', space: 1 });
+    });
+
+    text('PELO · ROPA · ZAPATOS · ACCESORIOS', W / 2, 1537, {
+      size: 23,
+      color: '#4a4438',
+      align: 'center',
+      space: 2,
+    });
+    text('GANA FICHAS EN MISIONES Y ARMA TU PROPIO LOOK', W / 2, 1590, {
+      size: 18,
+      color: '#756d5b',
+      align: 'center',
+      space: 1,
+    });
+    ctx.restore();
+  }
+
+  /* ── escena 6: cierre ───────────────────────────────────────────────── */
+
+  function escenaFinal(t) {
+    ctx.fillStyle = C.void;
+    ctx.fillRect(0, 0, W, H);
+    const a = ease(t / 0.8);
+
+    const g = ctx.createRadialGradient(W / 2, 760, 80, W / 2, 760, 700);
+    g.addColorStop(0, 'rgba(255,210,63,0.16)');
+    g.addColorStop(1, 'rgba(255,210,63,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = clamp(a);
+    text('RUTA', W / 2, 690, { size: 120, color: C.gold, align: 'center', space: 10 });
+    text('URBANA', W / 2, 820, { size: 120, color: C.parch, align: 'center', space: 10 });
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(W / 2 - 210, 860, 420, 5);
+    text('CAMINA. DESCUBRE. SUBE DE NIVEL.', W / 2, 980, { size: 34, color: C.parch, align: 'center', space: 3 });
+    text('PWA GRATIS · SIN ANUNCIOS · SIN CUENTAS', W / 2, 1060, { size: 24, color: C.muted, align: 'center', space: 3 });
+
+    const pulso = 0.5 + Math.sin(t * 4) * 0.15;
+    panel(144, 1140, 792, 152, { fill: '#1a1a24', border: C.gold, glow: true });
+    panel(178, 1175, 82, 82, { fill: '#241e10', border: C.gold, cut: 10 });
+    // Icono de instalar: teléfono + flecha hacia una pantalla.
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = 5;
+    ctx.strokeRect(201, 1190, 37, 51);
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(215, 1231, 9, 4);
+    ctx.globalAlpha = pulso;
+    ctx.fillRect(213, 1179, 13, 4);
+    ctx.fillRect(217, 1172, 5, 10);
+    ctx.globalAlpha = clamp(a);
+    text('LLEVA TU CIUDAD CONTIGO', 292, 1203, { size: 25, color: C.gold, space: 2 });
+    text('AGRÉGALA A TU PANTALLA DE INICIO', 292, 1248, { size: 22, color: C.parch, space: 1 });
+
+    drawAvatar(W / 2, 1490 + Math.sin(t * 4) * 6, 11, {
+      gorro: '#d6a934',
+      gorroEstilo: 'capucha',
+      ropa: '#344769',
+      ropaEstilo: 'chaqueta',
+      pant: '#2b3450',
+      zap: '#8593a5',
+      zapEstilo: 'zapatillas',
+      mochila: '#1a1a24',
+    });
+
+    text('TU CIUDAD, POR NIVELES.', W / 2, 1690, { size: 30, color: C.gold, align: 'center', space: 4 });
+    ctx.restore();
+  }
+
+  /* ── música chiptune (Web Audio, sin archivos) ─────────────────────── */
+
+  const audio = { ctx: null, master: null, dest: null, nodos: [], on: true };
+
+  const NEGRA = 0.5; // 120 BPM
+  const CORCHEA = NEGRA / 2;
+  const BARRA = NEGRA * 4;
+  const TONICA = 62; // Re mayor: aventura luminosa, nueva melodía original.
+  const ESCALA = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16];
+
+  const PROGRESION = [
+    { root: 50, tipo: 'M' }, // D
+    { root: 45, tipo: 'M' }, // A
+    { root: 47, tipo: 'm' }, // Bm
+    { root: 43, tipo: 'M' }, // G
+    { root: 50, tipo: 'M' },
+    { root: 45, tipo: 'M' },
+    { root: 47, tipo: 'm' },
+    { root: 43, tipo: 'M' },
+    { root: 50, tipo: 'M' },
+    { root: 45, tipo: 'M' },
+    { root: 47, tipo: 'm' },
+    { root: 50, tipo: 'M' },
+  ];
+
+  const BAJO = [0, 0, 12, 7, 0, 7, 12, 7];
+  const ARP = [0, 2, 1, 3, 2, 1, 3, 1];
+  const MEL_A = [7, 6, 4, null, 2, 4, 6, 7];
+  const MEL_B = [4, null, 2, 0, 2, 4, 7, 4];
+  const MEL_C = [2, 4, 6, 7, 9, 7, 6, 4];
+  const MEL_D = [0, 2, 4, null, 7, 6, 4, 2];
+  const MELODIAS = [MEL_A, MEL_B, MEL_C, MEL_D];
+
+  const frecuencia = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+
+  function crearRuido(ctx, segundos = 1) {
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * segundos), ctx.sampleRate);
+    const datos = buf.getChannelData(0);
+    for (let i = 0; i < datos.length; i++) datos[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  function nota(ctx, dest, tipo, midi, t, dur, vol, registro) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(frecuencia(midi), t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.03, dur));
+    osc.connect(g).connect(dest);
+    osc.start(t);
+    osc.stop(t + dur + 0.03);
+    if (registro) registro.push(osc);
+  }
+
+  function percusion(ctx, dest, ruido, t, dur, vol, corte, registro) {
+    const src = ctx.createBufferSource();
+    src.buffer = ruido;
+    const filtro = ctx.createBiquadFilter();
+    filtro.type = 'highpass';
+    filtro.frequency.value = corte;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(filtro).connect(g).connect(dest);
+    src.start(t);
+    src.stop(t + dur);
+    if (registro) registro.push(src);
+  }
+
+  function bombo(ctx, dest, t, registro) {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(155, t);
+    osc.frequency.exponentialRampToValueAtTime(46, t + 0.13);
+    g.gain.setValueAtTime(0.42, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.17);
+    osc.connect(g).connect(dest);
+    osc.start(t);
+    osc.stop(t + 0.19);
+    if (registro) registro.push(osc);
+  }
+
+  /** Programa los 12 compases (24 s) desde `t0`. */
+  function programarMusica(ctx, dest, t0, registro) {
+    const ruido = crearRuido(ctx);
+    for (let b = 0; b < 12; b++) {
+      const t = t0 + b * BARRA;
+      const ch = PROGRESION[b];
+      const tercera = ch.tipo === 'm' ? 3 : 4;
+      const tonos = [ch.root, ch.root + tercera, ch.root + 7, ch.root + 12];
+
+      BAJO.forEach((semi, i) => {
+        const acento = i === 0 || i === 4 ? 1.16 : 1;
+        nota(ctx, dest, 'triangle', ch.root - 12 + semi, t + i * CORCHEA, CORCHEA * 1.55, 0.15 * acento, registro);
+      });
+      ARP.forEach((grado, i) => {
+        const octava = b < 2 ? 12 : 19;
+        const acento = i % 2 === 0 ? 1.1 : 0.78;
+        nota(ctx, dest, 'triangle', tonos[grado] + octava, t + i * CORCHEA, CORCHEA * 0.62, 0.034 * acento, registro);
+      });
+
+      // Melodía pegadiza en Re mayor: entra después del logo, abre en el mapa
+      // y sube de registro en la secuencia de nivel/cambio de vestuario.
+      if (b >= 1 && b < 11) {
+        const mel = MELODIAS[(b - 1) % MELODIAS.length];
+        const volumen = b >= 8 ? 0.086 : b >= 3 ? 0.074 : 0.058;
+        mel.forEach((grado, i) => {
+          if (grado === null) return;
+          const n = TONICA + ESCALA[grado];
+          const dur = i === 0 || i === 4 ? CORCHEA * 0.9 : CORCHEA * 0.68;
+          nota(ctx, dest, 'square', n, t + i * CORCHEA, dur, volumen, registro);
+          if (i === 0 || i === 4) {
+            nota(ctx, dest, 'triangle', n + 12, t + i * CORCHEA + 0.012, dur * 0.72, 0.018, registro);
+          }
+        });
+      }
+
+      if (b >= 1 && b < 11) {
+        bombo(ctx, dest, t, registro);
+        bombo(ctx, dest, t + 2 * NEGRA, registro);
+        percusion(ctx, dest, ruido, t + NEGRA, 0.12, 0.09, 1500, registro);
+        percusion(ctx, dest, ruido, t + 3 * NEGRA, 0.12, 0.1, 1500, registro);
+        for (let i = 0; i < 8; i++) {
+          percusion(ctx, dest, ruido, t + i * CORCHEA, 0.035, i % 2 === 0 ? 0.023 : 0.012, 7200, registro);
+        }
+      }
+
+      // Brillo de fichas al cambiar de nivel y de look.
+      if (b === 6 || b === 8 || b === 10) {
+        [0, 4, 7, 9].forEach((grado, i) => {
+          nota(ctx, dest, 'square', TONICA + ESCALA[grado] + 12, t + i * CORCHEA * 0.5, 0.12, 0.042, registro);
+        });
+      }
+
+      if (b === 11) {
+        // Acorde final largo y ascenso corto que resuelve con el logo.
+        [TONICA, TONICA + 4, TONICA + 7, TONICA + 12].forEach((m, i) => {
+          nota(ctx, dest, i === 3 ? 'square' : 'triangle', m, t, 1.75, i === 3 ? 0.042 : 0.056, registro);
+        });
+        [0, 2, 4, 7].forEach((grado, i) => {
+          nota(ctx, dest, 'square', TONICA + ESCALA[grado] + 12, t + 0.08 + i * 0.12, 0.16, 0.035, registro);
+        });
+        percusion(ctx, dest, ruido, t, 0.8, 0.045, 3000, registro);
+      }
+    }
+  }
+
+  function asegurarAudio() {
+    if (!audio.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audio.ctx = new AC();
+      audio.master = audio.ctx.createGain();
+      audio.master.gain.value = audio.on ? 0.4 : 0;
+      audio.dest = audio.ctx.createMediaStreamDestination();
+      audio.master.connect(audio.ctx.destination);
+      audio.master.connect(audio.dest);
+    }
+    if (audio.ctx.state === 'suspended') audio.ctx.resume();
+    return audio.ctx;
+  }
+
+  function detenerMusica() {
+    for (const nodo of audio.nodos) {
+      try { nodo.stop(); } catch { /* ya terminó */ }
+    }
+    audio.nodos = [];
+  }
+
+  function reiniciarMusica() {
+    detenerMusica();
+    const ctx = asegurarAudio();
+    if (!ctx) return;
+    programarMusica(ctx, audio.master, ctx.currentTime + 0.08, audio.nodos);
+  }
+
+  function bufferAWav(buffer) {
+    const canales = buffer.numberOfChannels;
+    const muestras = buffer.length;
+    const bytes = 44 + muestras * canales * 2;
+    const vista = new DataView(new ArrayBuffer(bytes));
+    const ascii = (off, str) => {
+      for (let i = 0; i < str.length; i++) vista.setUint8(off + i, str.charCodeAt(i));
+    };
+    ascii(0, 'RIFF');
+    vista.setUint32(4, bytes - 8, true);
+    ascii(8, 'WAVE');
+    ascii(12, 'fmt ');
+    vista.setUint32(16, 16, true);
+    vista.setUint16(20, 1, true);
+    vista.setUint16(22, canales, true);
+    vista.setUint32(24, buffer.sampleRate, true);
+    vista.setUint32(28, buffer.sampleRate * canales * 2, true);
+    vista.setUint16(32, canales * 2, true);
+    vista.setUint16(34, 16, true);
+    ascii(36, 'data');
+    vista.setUint32(40, muestras * canales * 2, true);
+    const datos = [];
+    for (let c = 0; c < canales; c++) datos.push(buffer.getChannelData(c));
+    let off = 44;
+    for (let i = 0; i < muestras; i++) {
+      for (let c = 0; c < canales; c++) {
+        const s = Math.max(-1, Math.min(1, datos[c][i]));
+        vista.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        off += 2;
+      }
+    }
+    return new Blob([vista.buffer], { type: 'audio/wav' });
+  }
+
+  function descargarBlob(blob, nombre) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  async function descargarWav() {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) {
+      estado('Este navegador no soporta OfflineAudioContext. Usa Chrome/Edge.', 'err');
+      return;
+    }
+    estado('Sintetizando el tema de 24 s…');
+    try {
+      const off = new OAC(2, Math.floor(44100 * DURACION), 44100);
+      const master = off.createGain();
+      master.gain.value = 0.4;
+      master.connect(off.destination);
+      programarMusica(off, master, 0.02);
+      const render = await off.startRendering();
+      descargarBlob(bufferAWav(render), 'ruta-urbana-tema.wav');
+      estado('✓ Música descargada: ruta-urbana-tema.wav (24 s).', 'ok');
+    } catch (e) {
+      estado('No se pudo exportar el WAV: ' + e.message, 'err');
+    }
+  }
+
+  /* ── línea de tiempo ────────────────────────────────────────────────── */
+
+  const ESCENAS = [
+    { desde: 0, hasta: 3.2, dibujar: escenaLogo },
+    { desde: 3.2, hasta: 8.4, dibujar: escenaMapa },
+    { desde: 8.4, hasta: 12.8, dibujar: escenaMision },
+    { desde: 12.8, hasta: 16.4, dibujar: escenaNivel },
+    { desde: 16.4, hasta: 20.8, dibujar: escenaVestuario },
+    { desde: 20.8, hasta: 24, dibujar: escenaFinal },
+  ];
+
+  function transicion(global) {
+    for (const e of ESCENAS) {
+      if (global < e.desde - 0.001 || global >= e.hasta) continue;
+      const local = global - e.desde;
+      const dup = e.hasta - e.desde;
+
+      if (e.dibujar === escenaMapa && local < 0.06) {
+        reveladas.clear();
+        popups.length = 0;
+      }
+
+      e.dibujar(local, global);
+      const fadeIn = 1 - ease(local / 0.35);
+      const fadeOut = ease((local - (dup - 0.35)) / 0.35);
+      const negro = Math.max(fadeIn, fadeOut);
+      if (negro > 0.01) {
+        ctx.fillStyle = `rgba(5,5,12,${negro})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+      return;
+    }
+  }
+
+  let inicio = performance.now();
+  let grabando = false;
+  let loop = true;
+
+  function frame(ahora) {
+    let t = (ahora - inicio) / 1000;
+    if (loop && t > DURACION) {
+      inicio = ahora;
+      t = 0;
+      // la pista también vuelve a empezar con la vista previa
+      if (audio.ctx) reiniciarMusica();
+    }
+    const global = grabando ? Math.min(t, DURACION) : t;
+    ctx.clearRect(0, 0, W, H);
+    transicion(global);
+
+    // scanlines
+    ctx.save();
+    ctx.globalAlpha = 0.05;
+    ctx.fillStyle = '#ffffff';
+    for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    ctx.restore();
+
+    if (grabando && global >= DURACION) {
+      detenerGrabacion();
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ── grabación ──────────────────────────────────────────────────────── */
+
+  let recorder = null;
+  let trozos = [];
+
+  function mimeSoportado() {
+    if (!window.MediaRecorder) return null;
+    const opciones = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9',
+      'video/webm',
+    ];
+    return opciones.find((m) => MediaRecorder.isTypeSupported(m)) || null;
+  }
+
+  function estado(msg, tipo = '') {
+    statusEl.textContent = msg;
+    statusEl.className = 'status ' + tipo;
+  }
+
+  function empezarGrabacion() {
+    const mime = mimeSoportado();
+    if (!mime) {
+      estado('Este navegador no soporta MediaRecorder. Usa Chrome/Edge o graba la pestaña con OBS.', 'err');
+      return;
+    }
+    trozos = [];
+    // Audio primero: el gesto del clic permite crear/reanudar el AudioContext.
+    asegurarAudio();
+    reiniciarMusica();
+
+    const video = canvas.captureStream(30);
+    const pistas = [...video.getVideoTracks()];
+    if (audio.dest) pistas.push(...audio.dest.stream.getAudioTracks());
+    const stream = new MediaStream(pistas);
+
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    } catch {
+      recorder = new MediaRecorder(stream);
+    }
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size > 0) trozos.push(ev.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(trozos, { type: mime });
+      descargarBlob(blob, 'ruta-urbana-promo.webm');
+      estado('✓ Video descargado con música (' + (blob.size / 1024 / 1024).toFixed(1) + ' MB). Convierte a MP4 con ffmpeg.', 'ok');
+      grabando = false;
+      loop = true;
+      recBtn.disabled = false;
+      recBtn.textContent = '● Grabar WebM';
+      inicio = performance.now();
+      requestAnimationFrame(frame);
+    };
+
+    grabando = true;
+    loop = false;
+    recBtn.disabled = true;
+    recBtn.textContent = '● Grabando…';
+    estado('Grabando 24 s con música. No cambies de pestaña.');
+    reveladas.clear();
+    popups.length = 0;
+    inicio = performance.now();
+    recorder.start(250);
+    requestAnimationFrame(frame);
+  }
+
+  function detenerGrabacion() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (grabando) return;
+    reveladas.clear();
+    popups.length = 0;
+    inicio = performance.now();
+    loop = true;
+    reiniciarMusica();
+    estado('Reproduciendo con música (24 s, vertical).');
+  });
+
+  recBtn.addEventListener('click', () => {
+    if (grabando) return;
+    empezarGrabacion();
+  });
+
+  musicBtn.addEventListener('click', () => {
+    audio.on = !audio.on;
+    if (audio.master) {
+      audio.master.gain.setTargetAtTime(audio.on ? 0.4 : 0, audio.ctx.currentTime, 0.02);
+    }
+    musicBtn.textContent = audio.on ? '♪ Música: ON' : '♪ Música: OFF';
+    estado(audio.on ? 'Música activada.' : 'Música silenciada (la grabación saldrá sin audio).');
+  });
+
+  wavBtn.addEventListener('click', () => {
+    descargarWav();
+  });
+
+  // vista previa automática (sin audio hasta que pulses un botón: política de autoplay)
+  inicio = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
