@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import DialogueBox from './DialogueBox';
 import Hud from './Hud';
-import { itemById, quests } from '../game/data';
+import { Sprite, uiSvg } from './sprites';
+import { cosmeticById, itemById, quests } from '../game/data';
 import { publicarMision } from '../game/backend';
 import { generarMisionSecundaria, type BriefMision } from '../game/generador';
 import { sonar } from '../game/audio';
 import { usePlayerPosition } from '../game/geo';
+import { distanciaA } from '../game/proximity';
 import { buscarDialogo, buscarQuest, PROGRESO_VACIO, usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
-import type { QuestCategory, QuestStep } from '../game/types';
+import type { QuestCategory, QuestReward, QuestStep } from '../game/types';
 
 const CATEGORIA: Record<string, { icono: string; label: string }> = {
   tramite: { icono: '📋', label: 'TRÁMITE' },
@@ -32,6 +34,32 @@ const TIPO_ICONO: Record<QuestStep['tipo'], string> = {
   accion: '✓',
   rescate: '🆘',
 };
+
+/** Chips de recompensa: XP, paga en fichas, premio cosmético y atributos. */
+function ChipsRecompensa({ recompensa }: { recompensa: QuestReward }) {
+  const premio = recompensa.premio ? cosmeticById.get(recompensa.premio) : undefined;
+  return (
+    <>
+      <span className="border border-ruta-gold px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">+{recompensa.xp} XP</span>
+      {!!recompensa.paga && (
+        <span className="flex items-center gap-0.5 border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">
+          <Sprite svg={uiSvg('coins')} size={9} />+{recompensa.paga}
+        </span>
+      )}
+      {premio && (
+        <span className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
+          🎁 {premio.nombre}
+        </span>
+      )}
+      {recompensa.atributos &&
+        Object.entries(recompensa.atributos).map(([k, v]) => (
+          <span key={k} className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
+            +{v} {k.slice(0, 3).toUpperCase()}
+          </span>
+        ))}
+    </>
+  );
+}
 
 export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
   const activar = useQuestStore((s) => s.activar);
@@ -158,14 +186,8 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
                 <span className="flex-none font-pixel text-[9px] text-ruta-muted">{pct}%</span>
               </div>
 
-              <div className="mt-2 flex items-center gap-2">
-                <span className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">+{q.recompensa.xp} XP</span>
-                {q.recompensa.atributos &&
-                  Object.entries(q.recompensa.atributos).map(([k, v]) => (
-                    <span key={k} className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
-                      +{v} {k.slice(0, 3).toUpperCase()}
-                    </span>
-                  ))}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <ChipsRecompensa recompensa={q.recompensa} />
                 <span className="ml-auto font-pixel text-[9px] text-ruta-muted">
                   {pasosHechos}/{q.pasos.length} pasos
                 </span>
@@ -202,7 +224,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const completarMision = useQuestStore((s) => s.completarMision);
   const registrarRescate = useQuestStore((s) => s.registrarRescate);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
-  const nivelAntes = usePlayerStore((s) => s.jugador.nivel);
+  const { efectiva } = usePlayerPosition();
   const [dialogoAbierto, setDialogoAbierto] = useState<string | null>(null);
   const [pubMsg, setPubMsg] = useState<string | null>(null);
   const sonido = useSettingsStore((s) => s.sonido);
@@ -224,6 +246,33 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const todosPasos = quest.pasos.every((p) => progreso.pasosCompletados.includes(p.id));
   const cat = CATEGORIA[quest.categoria];
   const checksListos = (quest.requisitos.items ?? []).every((i) => progreso.checks[i]);
+
+  /** Botón del paso: "Ya llegué" solo se habilita dentro del radio del destino. */
+  const botonPaso = (paso: QuestStep) => {
+    const loc = paso.destinoId ? quest.ubicaciones.find((u) => u.id === paso.destinoId) : undefined;
+    const dist = loc ? Math.round(distanciaA(efectiva, loc)) : null;
+    const dentro = !loc || (dist ?? 0) <= loc.radioM;
+    const bloqueado = paso.tipo === 'ir' && !dentro;
+    return (
+      <>
+        <button
+          onClick={() => {
+            sonar('paso', sonido);
+            completarPaso(quest.id, paso.id);
+          }}
+          disabled={bloqueado}
+          className={`px-btn w-full py-2 font-pixel text-[11px] font-bold ${bloqueado ? 'text-ruta-muted opacity-45' : 'text-ruta-parchment'}`}
+        >
+          {paso.tipo !== 'ir' ? 'MARCAR PASO' : bloqueado ? `A ${dist} M · ACÉRCATE` : '📍 YA LLEGUÉ'}
+        </button>
+        {bloqueado && loc && (
+          <p className="mt-1 text-center font-pixel text-[9px] leading-3 text-ruta-muted">
+            Se activa dentro de {loc.nombre} ({loc.radioM} m).
+          </p>
+        )}
+      </>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -249,15 +298,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
           <p className="mt-1 font-pixel text-[12px] leading-5 text-ruta-muted">{quest.descripcion}</p>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="border border-ruta-gold px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">
-              +{quest.recompensa.xp} XP
-            </span>
-            {quest.recompensa.atributos &&
-              Object.entries(quest.recompensa.atributos).map(([k, v]) => (
-                <span key={k} className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
-                  +{v} {k.slice(0, 3).toUpperCase()}
-                </span>
-              ))}
+            <ChipsRecompensa recompensa={quest.recompensa} />
             <span className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-muted">
               Nv. {quest.nivelMinimo}+
             </span>
@@ -350,12 +391,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
                           💬 HABLAR
                         </button>
                       ) : (
-                        <button
-                          onClick={() => { sonar('paso', sonido); completarPaso(quest.id, paso.id); }}
-                          className="px-btn w-full py-2 font-pixel text-[11px] font-bold text-ruta-parchment"
-                        >
-                          {paso.tipo === 'ir' ? '📍 YA LLEGUÉ' : 'MARCAR PASO'}
-                        </button>
+                        botonPaso(paso)
                       )}
                     </div>
                   )}
@@ -373,23 +409,28 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
             onClick={() => {
               if (!todosPasos) return;
               completarMision(quest.id);
-              const nivelAhora = usePlayerStore.getState().jugador.nivel;
-              sonar(nivelAhora > nivelAntes ? 'nivel' : 'completar', sonido);
+              sonar('completar', sonido);
             }}
             disabled={!todosPasos}
             className={`px-btn w-full py-3 font-pixel text-xs font-bold ${todosPasos ? 'px-btn--on' : 'text-ruta-muted opacity-45'}`}
           >
-            🏁 COMPLETAR (+{quest.recompensa.xp} XP)
+            🏁 COMPLETAR (+{quest.recompensa.xp} XP
+            {quest.recompensa.paga ? ` · +${quest.recompensa.paga} fichas` : ''})
           </button>
-          <button
-            onClick={() => { sonar('rescate', sonido); registrarRescate(quest.id); }}
-            className="px-btn px-btn--danger mt-2 w-full py-2.5 font-pixel text-[11px] font-bold"
-          >
-            🆘 FALLÓ POR CAUSA EXTERNA (+{quest.recompensaRescate?.xp ?? 0} XP)
-          </button>
-          <p className="mt-1.5 text-center font-pixel text-[9px] leading-3 text-ruta-muted">
-            “Se cayó el sistema”: cobra XP parcial y la misión queda reprogramada.
-          </p>
+          {esActiva && (
+            <>
+              <button
+                onClick={() => { sonar('rescate', sonido); registrarRescate(quest.id); }}
+                className="px-btn px-btn--danger mt-2 w-full py-2.5 font-pixel text-[11px] font-bold"
+              >
+                🆘 FALLÓ POR CAUSA EXTERNA (+{quest.recompensaRescate?.xp ?? 0} XP
+                {quest.recompensaRescate?.paga ? ` · +${quest.recompensaRescate.paga} fichas` : ''})
+              </button>
+              <p className="mt-1.5 text-center font-pixel text-[9px] leading-3 text-ruta-muted">
+                “Se cayó el sistema”: cobra XP parcial y la misión queda reprogramada.
+              </p>
+            </>
+          )}
         </div>
       )}
 

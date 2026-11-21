@@ -1,12 +1,16 @@
 import L from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
 import Joystick from './Joystick';
-import { Sprite, AVATAR_SVG, pinGlifo, pinSvg, uiSvg, type PinEstado } from './sprites';
+import { Sprite, pinGlifo, pinSvg, uiSvg, type PinEstado } from './sprites';
+import { avatarSvg } from './avatar';
 import { quests } from '../game/data';
-import { REVEAL_RADIUS_M, cellCenter } from '../game/fog';
+import { REVEAL_RADIUS_M, XP_POR_CELDA, cellCenter } from '../game/fog';
 import { activarAvisos, useProximity } from '../game/useProximity';
 import { permisoAvisos } from '../game/alerts';
+import { proximoDestino } from '../game/proximity';
+import type { Equipamiento, Sexo } from '../game/types';
 import {
+  buscarQuest,
   useAlertStore,
   useExplorationStore,
   usePlayerStore,
@@ -15,12 +19,12 @@ import {
   useSettingsStore,
 } from '../game/store';
 
-const AVATAR_HTML = `
-<div class="ru-avatar">
+const avatarHtml = (equipado: Equipamiento, sexo: Sexo, caminando = false, espejo = false) => `
+<div class="ru-avatar${caminando ? ' ru-avatar--walk' : ''}${espejo ? ' ru-avatar--flip' : ''}">
   <div class="ru-avatar__halo"></div>
   <div class="ru-avatar__shadow"></div>
   <div class="ru-avatar__ring"></div>
-  <div class="ru-avatar__body">${AVATAR_SVG}</div>
+  <div class="ru-avatar__body">${avatarSvg(equipado, sexo)}</div>
 </div>`;
 
 const pinHtml = (estado: PinEstado) =>
@@ -61,13 +65,17 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const pinesRef = useRef<L.LayerGroup | null>(null);
   const radiosRef = useRef<L.LayerGroup | null>(null);
   const fantasmasRef = useRef<L.LayerGroup | null>(null);
+  const rutaRef = useRef<L.Polyline | null>(null);
   const visitedRef = useRef<string[]>([]);
-
+  const equipadoRef = useRef<Equipamiento>({});
+  const sexoRef = useRef<Sexo>('m');
   const { efectiva, mode, permiso, alerta, descartarAlerta } = useProximity();
   const setMode = useExplorationStore((s) => s.setMode);
   const visited = useExplorationStore((s) => s.visited);
   const resetFog = useExplorationStore((s) => s.resetFog);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
+  const equipado = usePlayerStore((s) => s.jugador.equipado);
+  const sexo = usePlayerStore((s) => s.jugador.sexo);
   const progressos = useQuestStore((s) => s.progresos);
   const customs = useQuestStore((s) => s.customs);
   const otros = usePresenceStore((s) => s.otros);
@@ -75,11 +83,21 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const sonido = useSettingsStore((s) => s.sonido);
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
   const [seguir, setSeguir] = useState(true);
+  const [caminando, setCaminando] = useState(false);
+  const [mirandoIzq, setMirandoIzq] = useState(false);
   const [permisoAviso, setPermisoAviso] = useState(permisoAvisos());
   const abrirRef = useRef(onAbrirQuest);
   abrirRef.current = onAbrirQuest;
+  const prevPosRef = useRef(efectiva);
+  const pausaRef = useRef<number | undefined>(undefined);
+  const espejoRef = useRef(false);
+
+  const questActiva = misionActivaId ? buscarQuest(misionActivaId) : undefined;
+  const destinoRuta = proximoDestino(questActiva, progressos[misionActivaId ?? '']?.pasosCompletados ?? []);
 
   visitedRef.current = visited;
+  equipadoRef.current = equipado;
+  sexoRef.current = sexo;
 
   /** Pinta la niebla: base + grano + perforado radial suave en celdas visitadas. */
   const dibujarNiebla = () => {
@@ -179,7 +197,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     canvasRef.current = canvas;
 
     const marker = L.marker([efectiva.lat, efectiva.lng], {
-      icon: L.divIcon({ html: AVATAR_HTML, className: '', iconSize: [48, 60], iconAnchor: [24, 44] }),
+      icon: L.divIcon({ html: avatarHtml(equipadoRef.current, sexoRef.current), className: '', iconSize: [48, 60], iconAnchor: [24, 44] }),
       interactive: false,
       keyboard: false,
       zIndexOffset: 1000,
@@ -211,6 +229,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
       map.off('moveend zoomend resize', redibujar);
       map.remove();
       mapRef.current = null;
+      rutaRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -251,6 +270,32 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     }
   }, [misionActivaId, customs, progressos]);
 
+  // Ruta punteada hasta el próximo destino de la misión activa.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!destinoRuta) {
+      rutaRef.current?.remove();
+      rutaRef.current = null;
+      return;
+    }
+    const puntos: [number, number][] = [
+      [efectiva.lat, efectiva.lng],
+      [destinoRuta.latitud, destinoRuta.longitud],
+    ];
+    if (!rutaRef.current) {
+      rutaRef.current = L.polyline(puntos, {
+        color: '#FFD23F',
+        weight: 2,
+        opacity: 0.75,
+        dashArray: '6 8',
+        interactive: false,
+      }).addTo(map);
+    } else {
+      rutaRef.current.setLatLngs(puntos);
+    }
+  }, [efectiva, destinoRuta]);
+
   // Fantasmas del radar (posiciones difuminadas).
   useEffect(() => {
     const capa = fantasmasRef.current;
@@ -281,6 +326,41 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     dibujarRef.current();
   }, [visited]);
 
+  // Detecta desplazamiento: activa la caminata y define hacia qué lado mira.
+  useEffect(() => {
+    const prev = prevPosRef.current;
+    prevPosRef.current = efectiva;
+    const dLat = efectiva.lat - prev.lat;
+    const dLng = efectiva.lng - prev.lng;
+    if (dLat === 0 && dLng === 0) return;
+    const metros = Math.hypot(
+      dLat * 111320,
+      dLng * 111320 * Math.cos((efectiva.lat * Math.PI) / 180),
+    );
+    if (metros < 2) return; // ignora ruido del GPS
+    if (Math.abs(dLng) > Math.abs(dLat) * 0.6) {
+      espejoRef.current = dLng < 0;
+      setMirandoIzq(espejoRef.current);
+    }
+    setCaminando(true);
+    window.clearTimeout(pausaRef.current);
+    pausaRef.current = window.setTimeout(() => setCaminando(false), 420);
+  }, [efectiva]);
+
+  useEffect(() => () => window.clearTimeout(pausaRef.current), []);
+
+  // Cambiar de ropa, caminar o girar refresca el avatar sobre el mapa.
+  useEffect(() => {
+    markerRef.current?.setIcon(
+      L.divIcon({
+        html: avatarHtml(equipado, sexo, caminando, mirandoIzq),
+        className: '',
+        iconSize: [48, 60],
+        iconAnchor: [24, 44],
+      }),
+    );
+  }, [equipado, sexo, caminando, mirandoIzq]);
+
   const centrar = () => {
     setSeguir(true);
     mapRef.current?.setView([efectiva.lat, efectiva.lng], mapRef.current.getZoom(), { animate: true });
@@ -293,30 +373,32 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   };
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full overflow-hidden">
       <div ref={contRef} className="absolute inset-0" />
       <div className="ru-vignette" />
 
       {/* Banner de proximidad */}
       {alerta && (
-        <div className="absolute left-3 right-3 top-[118px] z-[1100] px-frame px-frame--gold p-3">
-          <button onClick={() => { onAbrirQuest(alerta.questId); descartarAlerta(); }} className="block w-full text-left">
-            <div className="flex items-center gap-2 font-pixel text-[10px] tracking-widest text-ruta-gold">
-              <Sprite svg={uiSvg('target')} size={12} />
-              {alerta.sensible ? 'MISIÓN CERCANA' : `LLEGASTE · ~${alerta.distanciaM} M`}
-            </div>
-            <div className="mt-1 font-pixel text-sm font-bold text-ruta-parchment">
-              {alerta.sensible ? 'Tienes una misión secundaria cerca' : `${alerta.nombre} · ${alerta.questTitulo}`}
-            </div>
-            <div className="mt-0.5 font-pixel text-[10px] text-ruta-muted">Toca para abrir la misión →</div>
-          </button>
-          <button
-            onClick={descartarAlerta}
-            aria-label="Descartar alerta"
-            className="px-btn absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center font-pixel text-xs text-ruta-muted"
-          >
-            ✕
-          </button>
+        <div className="absolute inset-x-0 top-[118px] z-[1100] flex justify-center px-3">
+          <div className="w-full overflow-hidden px-frame px-frame--gold p-3">
+            <button onClick={() => { onAbrirQuest(alerta.questId); descartarAlerta(); }} className="block w-full pr-7 text-left">
+              <div className="flex items-center gap-2 font-pixel text-[10px] tracking-widest text-ruta-gold">
+                <Sprite svg={uiSvg('target')} size={12} />
+                {alerta.sensible ? 'MISIÓN CERCANA' : `LLEGASTE · ~${alerta.distanciaM} M`}
+              </div>
+              <div className="mt-1 break-words font-pixel text-sm font-bold leading-5 text-ruta-parchment">
+                {alerta.sensible ? 'Tienes una misión secundaria cerca' : `${alerta.nombre} · ${alerta.questTitulo}`}
+              </div>
+              <div className="mt-0.5 font-pixel text-[10px] leading-4 text-ruta-muted">Toca para abrir la misión →</div>
+            </button>
+            <button
+              onClick={descartarAlerta}
+              aria-label="Descartar alerta"
+              className="px-btn absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center font-pixel text-xs text-ruta-muted"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -329,7 +411,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
               {visited.length} <span className="text-ruta-muted">celdas</span>
             </span>
             <span className="font-pixel text-[10px] text-ruta-line">|</span>
-            <span className="font-pixel text-[10px] text-ruta-muted">100 m</span>
+            <span className="font-pixel text-[10px] text-ruta-xp">+{XP_POR_CELDA} XP</span>
           </div>
           <button
             onClick={() => (seguir ? setSeguir(false) : centrar())}
@@ -341,20 +423,20 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
         </div>
 
         <div className="flex gap-2">
-          <button onClick={() => setMode('gps')} className={`px-btn flex flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+          <button onClick={() => setMode('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
             <Sprite svg={uiSvg('gps')} size={14} /> GPS
           </button>
-          <button onClick={() => setMode('joystick')} className={`px-btn flex flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+          <button onClick={() => setMode('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
             <Sprite svg={uiSvg('joystick')} size={14} /> PAD
           </button>
-          <button onClick={resetFog} title="Reiniciar niebla" aria-label="Reiniciar niebla" className="px-btn flex h-9 w-9 items-center justify-center text-ruta-muted">
+          <button onClick={resetFog} title="Reiniciar niebla" aria-label="Reiniciar niebla" className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-muted">
             <Sprite svg={uiSvg('fog')} size={16} />
           </button>
-          <button onClick={toggleSonido} title={sonido ? 'Silenciar sonidos' : 'Activar sonidos'} aria-label={sonido ? 'Silenciar' : 'Activar sonido'} className="px-btn flex h-9 w-9 items-center justify-center text-ruta-muted">
+          <button onClick={toggleSonido} title={sonido ? 'Silenciar sonidos' : 'Activar sonidos'} aria-label={sonido ? 'Silenciar' : 'Activar sonido'} className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-muted">
             <Sprite svg={uiSvg(sonido ? 'soundOn' : 'soundOff')} size={16} />
           </button>
           {!avisosActivados && permisoAviso !== 'denied' && (
-            <button onClick={pedirAvisos} aria-label="Activar avisos" className="px-btn flex h-9 w-9 items-center justify-center text-ruta-burocracia">
+            <button onClick={pedirAvisos} aria-label="Activar avisos" className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-burocracia">
               <Sprite svg={uiSvg('bell')} size={16} />
             </button>
           )}

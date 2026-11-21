@@ -3,6 +3,8 @@
  * Sin assets externos: nítidos a cualquier escala, offline, licencia propia.
  * Paleta alineada a src/index.css (ruta.*).
  */
+import { avatarSvg } from './avatar';
+import type { Equipamiento, Sexo } from '../game/types';
 
 const PIEL = '#F2C9A0';
 const PIEL_SOMBRA = '#D9A87C';
@@ -10,8 +12,6 @@ const TINTA = '#12121A';
 const ORO = '#FFD23F';
 const ORO_OSCURO = '#C99A16';
 const ROJO = '#FF5D5D';
-const AZUL = '#6AA8FF';
-const AZUL_OSCURO = '#3D6FC4';
 const VERDE = '#7CFC5A';
 const HUESO = '#F2E8C9';
 const GRIS = '#9AA0B2';
@@ -25,60 +25,9 @@ const px = (x: number, y: number, w: number, h: number, fill: string) =>
 
 /* ────────────────────────────── AVATAR (20×24) ────────────────────────────── */
 
-/**
- * El joven con capucha y mochila, vista 3/4 cenital (estilo RPG de mapa).
- * Capucha dorada, bufanda roja, chaqueta azul, mochila con correas y botas.
- */
-export const AVATAR_SVG = svg(
-  [
-    // mochila (detrás, asoma a los lados)
-    px(2, 12, 3, 7, '#C23B3B'),
-    px(15, 12, 3, 7, '#C23B3B'),
-    // capucha: contorno y volumen
-    px(5, 1, 10, 2, TINTA),
-    px(4, 2, 12, 6, TINTA),
-    px(5, 2, 10, 6, ORO),
-    px(6, 1, 8, 1, ORO_OSCURO),
-    px(5, 7, 10, 1, ORO_OSCURO),
-    px(4, 4, 1, 4, ORO_OSCURO),
-    px(15, 4, 1, 4, ORO_OSCURO),
-    // sombra interior de la capucha
-    px(7, 3, 6, 4, '#8A6510'),
-    // rostro
-    px(7, 3, 6, 4, PIEL),
-    px(7, 6, 6, 1, PIEL_SOMBRA),
-    // ojos + boca
-    px(8, 4, 1, 1, TINTA),
-    px(11, 4, 1, 1, TINTA),
-    px(9, 6, 2, 1, '#B07A5A'),
-    // bufanda
-    px(6, 8, 8, 2, ROJO),
-    px(6, 9, 2, 4, '#C23B3B'),
-    // torso (chaqueta)
-    px(5, 10, 10, 9, TINTA),
-    px(6, 10, 8, 8, AZUL),
-    px(6, 10, 8, 1, '#8CC0FF'),
-    px(6, 16, 8, 2, AZUL_OSCURO),
-    // correas de la mochila
-    px(8, 10, 1, 8, TINTA),
-    px(11, 10, 1, 8, TINTA),
-    // brazos
-    px(4, 11, 2, 6, AZUL_OSCURO),
-    px(14, 11, 2, 6, AZUL_OSCURO),
-    px(4, 16, 2, 2, PIEL),
-    px(14, 16, 2, 2, PIEL),
-    // piernas
-    px(6, 19, 3, 3, '#2B3450'),
-    px(11, 19, 3, 3, '#2B3450'),
-    // botas
-    px(6, 22, 3, 2, '#7A5230'),
-    px(11, 22, 3, 2, '#7A5230'),
-    px(6, 23, 4, 1, TINTA),
-    px(10, 23, 4, 1, TINTA),
-  ].join(''),
-  '0 0 20 24',
-  'width="40" height="48"',
-);
+// El avatar ahora es paramétrico según lo equipado: ver `src/components/avatar.ts`.
+// `avatarSvg(equipado)` compone pelo, gorro, lentes, barba, ropa, pantalón,
+// zapatos, aros, tatuajes y mochila con los colores de `cosmetics.json`.
 
 /* ────────────────────────────── RETRATOS NPC (16×16) ────────────────────────────── */
 
@@ -288,6 +237,19 @@ const UI: Record<string, string> = {
     px(3, 4, 4, 2, '#8A8AA8'),
     px(9, 8, 4, 2, '#8A8AA8'),
   ].join(''),
+  coins: [
+    px(3, 3, 10, 10, '#8A6510'),
+    px(4, 4, 8, 8, ORO),
+    px(5, 5, 2, 2, '#FFE887'),
+    px(9, 9, 2, 2, ORO_OSCURO),
+  ].join(''),
+  xp: [
+    px(7, 0, 2, 6, ORO),
+    px(7, 10, 2, 6, ORO),
+    px(0, 7, 6, 2, ORO),
+    px(10, 7, 6, 2, ORO),
+    px(6, 6, 4, 4, '#FFE887'),
+  ].join(''),
   soundOn: [
     px(2, 6, 3, 4, HUESO),
     px(5, 4, 2, 8, HUESO),
@@ -325,6 +287,28 @@ export function Sprite({ svg: html, size = 14, titulo }: { svg: string; size?: n
       aria-hidden={titulo ? undefined : true}
       style={{ display: 'inline-flex', width: size, height: size, flex: 'none' }}
       dangerouslySetInnerHTML={{ __html: html.replace('<svg ', `<svg width="${size}" height="${size}" `) }}
+    />
+  );
+}
+
+/** Avatar con el equipamiento puesto, respetando la proporción 20:24. */
+export function Avatar({
+  equipado,
+  sexo = 'm',
+  alto = 96,
+  titulo,
+}: {
+  equipado: Equipamiento;
+  sexo?: Sexo;
+  alto?: number;
+  titulo?: string;
+}) {
+  const ancho = Math.round((alto * 20) / 24);
+  return (
+    <span
+      title={titulo}
+      style={{ display: 'inline-flex', width: ancho, height: alto, flex: 'none' }}
+      dangerouslySetInnerHTML={{ __html: avatarSvg(equipado, sexo, ancho, alto) }}
     />
   );
 }

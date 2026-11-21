@@ -192,6 +192,17 @@ body::before {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
+/* Caminar: bob más rápido y espejo según la dirección. */
+.ru-avatar--walk .ru-avatar__body {
+  animation: ru-walk 300ms steps(2, end) infinite;
+}
+@keyframes ru-walk {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.ru-avatar--flip {
+  transform: scaleX(-1);
+}
 
 /* ── Pines de misión ── */
 .ru-pin {
@@ -257,6 +268,59 @@ body::before {
   50% { transform: translateY(-2px); opacity: 0.95; }
 }
 
+/* ── Feedback de XP y subida de nivel ── */
+.ru-xp-toast {
+  animation: ru-xp-float 1.4s steps(8, end) forwards;
+  text-shadow: 0 2px 0 #05050b;
+}
+@keyframes ru-xp-float {
+  0% { opacity: 0; transform: translateY(10px) scale(0.9); }
+  18% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-22px) scale(1); }
+}
+.ru-level-pop {
+  animation: ru-level-pop 360ms steps(6, end) both;
+}
+@keyframes ru-level-pop {
+  0% { opacity: 0; transform: scale(0.7); }
+  70% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.ru-level-halo {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 76px;
+  height: 76px;
+  margin-left: -38px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 210, 63, 0.5), transparent 68%);
+  animation: ru-level-halo 900ms steps(8, end) infinite;
+}
+@keyframes ru-level-halo {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+.ru-level-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 210, 63, 0.5), rgba(255, 210, 63, 0.08) 45%, transparent 72%);
+  animation: ru-level-flash 800ms ease-out forwards;
+}
+@keyframes ru-level-flash {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ru-level-avatar {
+  animation: ru-level-bounce 900ms steps(4, end) 2;
+}
+@keyframes ru-level-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
 /* ── Scrollbar pixel ── */
 * {
   scrollbar-width: thin;
@@ -277,8 +341,14 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .ru-avatar__halo,
   .ru-avatar__body,
+  .ru-avatar--walk .ru-avatar__body,
   .ru-pin--activa,
-  .ru-ghost {
+  .ru-ghost,
+  .ru-xp-toast,
+  .ru-level-pop,
+  .ru-level-halo,
+  .ru-level-flash,
+  .ru-level-avatar {
     animation: none !important;
   }
 }

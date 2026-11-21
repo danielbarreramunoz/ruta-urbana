@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import AvatarEditor from './components/AvatarEditor';
+import FxOverlay from './components/FxOverlay';
 import Hud from './components/Hud';
 import MapView from './components/MapView';
 import { MisionesTab, QuestDetail } from './components/Quests';
@@ -6,7 +8,7 @@ import RadarTab from './components/Radar';
 import { Sprite, attrSvg, uiSvg } from './components/sprites';
 import { useRadar } from './game/useRadar';
 import { buscarQuest } from './game/store';
-import { usePlayerStore, useSettingsStore } from './game/store';
+import { usePlayerStore, useQuestStore, useSettingsStore } from './game/store';
 
 type Tab = 'inicio' | 'mapa' | 'misiones' | 'radar' | 'jugador';
 
@@ -49,7 +51,10 @@ function InicioTab({ onAbrir, onMisiones }: { onAbrir: (id: string) => void; onM
             </div>
             <div className="mt-1 font-pixel text-base font-bold text-ruta-parchment">{mision.titulo}</div>
             <div className="mt-1 flex items-center justify-between font-pixel text-[10px] text-ruta-muted">
-              <span>+{mision.recompensa.xp} XP</span>
+              <span>
+                +{mision.recompensa.xp} XP
+                {mision.recompensa.paga ? ` · +${mision.recompensa.paga} fichas` : ''}
+              </span>
               <span>continuar →</span>
             </div>
           </div>
@@ -88,10 +93,10 @@ function InicioTab({ onAbrir, onMisiones }: { onAbrir: (id: string) => void; onM
         <div className="font-pixel text-[11px] font-bold tracking-wide text-ruta-parchment">CÓMO SE JUEGA</div>
         <div className="mt-2 space-y-1.5">
           {[
-            ['01', 'La niebla cubre la ciudad: camina y se disipa en 100 m.'],
+            ['01', 'La niebla cubre la ciudad: cada celda nueva da XP y hay bonus cada 25.'],
             ['02', 'Activa una misión, revisa tu mochila y sigue el guion.'],
             ['03', 'Entra al radio del destino: vibra y aparece el aviso.'],
-            ['04', 'Cobra XP y atributos. Si algo externo falla, cobra parcial.'],
+            ['04', 'Cobra XP, fichas y a veces un premio. Si algo externo falla, cobra parcial.'],
           ].map(([n, t]) => (
             <div key={t} className="flex gap-2 font-pixel text-[10px] leading-4 text-ruta-muted">
               <span className="flex-none border border-ruta-line px-1 text-ruta-gold">{n}</span>
@@ -110,9 +115,12 @@ function InicioTab({ onAbrir, onMisiones }: { onAbrir: (id: string) => void; onM
 function JugadorTab() {
   const jugador = usePlayerStore((s) => s.jugador);
   const ganarXP = usePlayerStore((s) => s.ganarXP);
+  const ganarFichas = usePlayerStore((s) => s.ganarFichas);
   const reiniciar = usePlayerStore((s) => s.reiniciar);
+  const reiniciarMisiones = useQuestStore((s) => s.reiniciarMisiones);
   const sonido = useSettingsStore((s) => s.sonido);
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
+  const [confirmarReset, setConfirmarReset] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -121,6 +129,8 @@ function JugadorTab() {
         <h1 className="font-pixel text-xl font-bold text-ruta-parchment">Jugador</h1>
       </div>
       <Hud />
+
+      <AvatarEditor />
 
       <div className="px-frame p-3">
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -142,16 +152,47 @@ function JugadorTab() {
         </p>
       </div>
 
-      <div className="space-y-2">
-        <button onClick={() => ganarXP(25, { valentia: 1 })} className="px-btn px-btn--xp w-full py-3 font-pixel text-xs font-bold">
-          +25 XP de prueba (+1 VAL)
+      <div className="px-frame p-3">
+        <div className="font-pixel text-[11px] font-bold tracking-wide text-ruta-parchment">HERRAMIENTAS DE PRUEBA</div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => ganarFichas(1000)}
+            className="px-btn px-btn--xp py-2.5 font-pixel text-[10px] font-bold"
+          >
+            +1000 FICHAS
+          </button>
+          <button
+            onClick={() => ganarXP(25, { valentia: 1 })}
+            className="px-btn px-btn--xp py-2.5 font-pixel text-[10px] font-bold"
+          >
+            +25 XP (+1 VAL)
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            if (!confirmarReset) {
+              setConfirmarReset(true);
+            } else {
+              reiniciarMisiones();
+              setConfirmarReset(false);
+            }
+          }}
+          className={`px-btn mt-2 w-full py-2.5 font-pixel text-[10px] font-bold ${confirmarReset ? 'px-btn--danger' : 'text-ruta-burocracia'}`}
+        >
+          {confirmarReset ? '¿SEGURO? TOCA OTRA VEZ' : '↻ REINICIAR MISIONES'}
         </button>
+        <p className="mt-1.5 font-pixel text-[9px] leading-3 text-ruta-muted">
+          Reiniciar misiones conserva nivel, fichas y cosméticos.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <button onClick={toggleSonido} className="px-btn flex w-full items-center justify-center gap-2 py-3 font-pixel text-xs text-ruta-parchment">
           <Sprite svg={uiSvg(sonido ? 'soundOn' : 'soundOff')} size={16} />
           {sonido ? 'SONIDO ACTIVADO' : 'SONIDO DESACTIVADO'}
         </button>
         <button onClick={() => reiniciar()} className="px-btn w-full py-3 font-pixel text-xs text-ruta-muted">
-          Reiniciar jugador
+          Reiniciar jugador (todo)
         </button>
       </div>
     </div>
@@ -235,6 +276,8 @@ export default function App() {
           </button>
         </nav>
       )}
+
+      <FxOverlay />
     </div>
   );
 }
