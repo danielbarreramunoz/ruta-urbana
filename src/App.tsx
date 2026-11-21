@@ -3,7 +3,7 @@ import Hud from './components/Hud';
 import MapView from './components/MapView';
 import { MisionesTab, QuestDetail } from './components/Quests';
 import { questById } from './game/data';
-import { usePlayerStore } from './game/store';
+import { usePlayerStore, useSettingsStore } from './game/store';
 
 type Tab = 'inicio' | 'mapa' | 'misiones' | 'jugador';
 
@@ -47,6 +47,8 @@ function JugadorTab() {
   const jugador = usePlayerStore((s) => s.jugador);
   const ganarXP = usePlayerStore((s) => s.ganarXP);
   const reiniciar = usePlayerStore((s) => s.reiniciar);
+  const sonido = useSettingsStore((s) => s.sonido);
+  const toggleSonido = useSettingsStore((s) => s.toggleSonido);
   return (
     <div className="space-y-3">
       <div className="font-pixel text-xs tracking-widest text-ruta-muted">JUGADOR · LOCALSTORAGE</div>
@@ -60,6 +62,9 @@ function JugadorTab() {
       </div>
       <button onClick={() => ganarXP(25, { valentia: 1 })} className="w-full border-2 border-ruta-xp bg-ruta-panel p-4 font-pixel text-sm font-bold text-ruta-xp">
         +25 XP de prueba (+1 VAL)
+      </button>
+      <button onClick={toggleSonido} className="w-full border-2 border-ruta-line bg-ruta-panel p-4 font-pixel text-sm text-ruta-parchment">
+        {sonido ? '🔊 Sonido activado' : '🔇 Sonido desactivado'} — tocar para cambiar
       </button>
       <button onClick={() => reiniciar()} className="w-full border-2 border-ruta-line bg-ruta-panel p-4 font-pixel text-sm text-ruta-muted">
         Reiniciar jugador
@@ -85,7 +90,7 @@ export default function App() {
             <InicioTab onAbrir={(id) => { setTab('misiones'); setMisionAbierta(id); }} />
           </div>
         ) : tab === 'mapa' ? (
-          <MapView />
+          <MapView onAbrirQuest={(id) => setMisionAbierta(id)} />
         ) : tab === 'misiones' ? (
           <div className="mx-auto max-w-md p-4">
             <MisionesTab onAbrir={setMisionAbierta} />

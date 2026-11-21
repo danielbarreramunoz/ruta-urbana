@@ -190,6 +190,65 @@ export const DEFAULT_ORIGIN = { lat: -33.4372, lng: -70.6506 };
 export const JOYSTICK_STEP_M = 25;
 const MAX_VISITED = 8000;
 
+export interface AlertaProximidad {
+  questId: string;
+  locationId: string;
+  nombre: string;
+  sensible?: boolean;
+  questTitulo: string;
+  distanciaM: number;
+  at: string;
+}
+
+interface AlertState {
+  alerta: AlertaProximidad | null;
+  /** Última alerta por ubicación (ms epoch) para cooldown anti-spam. */
+  ultimasAlertas: Record<string, number>;
+  /** El usuario activó los avisos del sistema (permiso Notification). */
+  avisosActivados: boolean;
+  dispararAlerta: (a: Omit<AlertaProximidad, 'at'>) => void;
+  descartarAlerta: () => void;
+  setAvisosActivados: (v: boolean) => void;
+}
+
+export const useAlertStore = create<AlertState>()(
+  persist(
+    (set) => ({
+      alerta: null,
+      ultimasAlertas: {},
+      avisosActivados: false,
+      dispararAlerta: (a) =>
+        set((s) => ({
+          alerta: { ...a, at: new Date().toISOString() },
+          ultimasAlertas: { ...s.ultimasAlertas, [`${a.questId}:${a.locationId}`]: Date.now() },
+        })),
+      descartarAlerta: () => set({ alerta: null }),
+      setAvisosActivados: (v) => set({ avisosActivados: v }),
+    }),
+    {
+      name: 'ruta-urbana/alertas',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({ ultimasAlertas: s.ultimasAlertas, avisosActivados: s.avisosActivados }) as AlertState,
+    },
+  ),
+);
+
+interface SettingsState {
+  sonido: boolean;
+  toggleSonido: () => void;
+}
+
+/** Preferencias UI (persistidas). */
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      sonido: true,
+      toggleSonido: () => set((s) => ({ sonido: !s.sonido })),
+    }),
+    { name: 'ruta-urbana/ajustes', storage: createJSONStorage(() => localStorage) },
+  ),
+);
+
 export type PositionMode = 'gps' | 'joystick';
 
 interface ExplorationState {

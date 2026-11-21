@@ -1,10 +1,11 @@
 import { usePlayerStore } from '../game/store';
+import { Sprite, attrSvg } from './sprites';
 
 const ATRIBUTOS = [
-  { key: 'carisma', label: 'CAR', color: 'bg-ruta-carisma' },
-  { key: 'valentia', label: 'VAL', color: 'bg-ruta-valentia' },
-  { key: 'burocracia', label: 'BUR', color: 'bg-ruta-burocracia' },
-  { key: 'supervivencia', label: 'SUP', color: 'bg-ruta-supervivencia' },
+  { key: 'carisma', label: 'CAR' },
+  { key: 'valentia', label: 'VAL' },
+  { key: 'burocracia', label: 'BUR' },
+  { key: 'supervivencia', label: 'SUP' },
 ] as const;
 
 /** HUD principal: nivel, barra XP y los 4 atributos. */
@@ -28,7 +29,7 @@ export default function Hud() {
       <div className="mt-2 flex justify-between">
         {ATRIBUTOS.map((a) => (
           <span key={a.key} className="flex items-center px-1 font-pixel text-[11px] text-ruta-muted">
-            <span className={`mr-1 inline-block h-2 w-2 ${a.color}`} />
+            <span className="mr-1 inline-flex"><Sprite svg={attrSvg(a.key)} size={14} titulo={a.label} /></span>
             {a.label} <b className="ml-1 text-ruta-parchment">{jugador.atributos[a.key]}</b>
           </span>
         ))}

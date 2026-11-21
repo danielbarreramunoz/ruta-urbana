@@ -28,3 +28,10 @@ Verificación antes de declarar listo: `npx tsc -b` limpio + `npm run build` OK 
 4. **GPS web es best-effort**: `watchPosition` muere con la pantalla apagada y el navegador pide permiso. El joystick mock siempre disponible; el juego nunca se bloquea sin GPS.
 5. **Offline real de tiles**: el SW cachea lo ya visto; zonas nuevas requieren red. No prometer offline total del mapa.
 6. Proyecto hermano `ruta-urbana-android/` (Expo + MapLibre nativo) archivado para el port futuro; no mezclar código RN aquí.
+
+## Puertas de fase
+
+- Fase 0-2: ✅ Mapa + niebla + joystick + misiones data-driven + HUD + diálogos + rescate.
+- Fase 3: ✅ Proximidad a misión activa (radio 50–80 m) con vibración + banner + notificación opcional (solo app oculta, con permiso) + modo discreto para sensibles + cooldown 10 min. Sin app abierta NO hay geofencing en web: no prometerlo.
+- Fase 4: ✅ Sprites pixel-art SVG propios (avatar, 3 retratos NPC, pines, iconos), sonidos retro Web Audio muteables, `GUIA-CALLE.md` con protocolo de 3 salidas. Pendiente: dogfooding en calle por el usuario.
+- Fase 5: CONGELADA hasta validar MVP en solitario.

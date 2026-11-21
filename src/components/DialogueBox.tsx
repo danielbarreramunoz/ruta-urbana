@@ -1,15 +1,11 @@
 import { useState } from 'react';
 import { dialogueById } from '../game/data';
-import { usePlayerStore } from '../game/store';
+import { sonar } from '../game/audio';
+import { usePlayerStore, useSettingsStore } from '../game/store';
 import type { DialogueNode } from '../game/types';
+import { Sprite, retratoSvg } from './sprites';
 
-const INICIALES: Record<string, string> = {
-  'don-tito': 'DT',
-  'ana-tens': 'AT',
-  seba: 'S',
-};
-
-/** Caja de diálogo estilo RPG con retrato placeholder (Fase 4: sprite Pixel Art). */
+/** Caja de diálogo estilo RPG con retrato pixel-art definitivo. */
 export default function DialogueBox({
   nodoInicial,
   onTerminar,
@@ -19,12 +15,14 @@ export default function DialogueBox({
 }) {
   const [actualId, setActualId] = useState(nodoInicial.id);
   const ganarXP = usePlayerStore((s) => s.ganarXP);
+  const sonido = useSettingsStore((s) => s.sonido);
   const nodo = dialogueById.get(actualId) ?? nodoInicial;
 
   const elegir = (opcionId: string) => {
     const opcion = nodo.opciones.find((o) => o.id === opcionId);
     if (!opcion) return;
     if (opcion.efecto?.xp) ganarXP(opcion.efecto.xp, opcion.efecto.atributos);
+    sonar('check', sonido);
     if (opcion.siguienteId && dialogueById.has(opcion.siguienteId)) {
       setActualId(opcion.siguienteId);
     } else {
@@ -35,9 +33,7 @@ export default function DialogueBox({
   return (
     <div className="border-2 border-ruta-gold bg-ruta-panel p-4">
       <div className="flex items-center">
-        <div className="flex h-14 w-14 items-center justify-center border-2 border-ruta-line bg-ruta-void">
-          <span className="font-pixel text-lg font-bold text-ruta-gold">{INICIALES[nodo.npcId] ?? '??'}</span>
-        </div>
+        <Sprite svg={retratoSvg(nodo.npcId)} size={56} titulo={nodo.npcNombre} />
         <div className="ml-3 flex-1">
           <div className="font-pixel text-sm font-bold text-ruta-parchment">{nodo.npcNombre}</div>
           {nodo.esRescate && <div className="font-pixel text-[11px] text-ruta-valentia">⚠ IMPREVISTO EXTERNO</div>}

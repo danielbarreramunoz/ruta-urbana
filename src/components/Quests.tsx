@@ -2,8 +2,8 @@ import { useState } from 'react';
 import DialogueBox from './DialogueBox';
 import Hud from './Hud';
 import { dialogueById, itemById, questById, quests } from '../game/data';
-import { usePlayerStore } from '../game/store';
-import { useQuestStore } from '../game/store';
+import { sonar } from '../game/audio';
+import { usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
 import type { QuestStep } from '../game/types';
 
 const CATEGORIA: Record<string, string> = {
@@ -34,6 +34,7 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
   const activar = useQuestStore((s) => s.activar);
   const progresos = useQuestStore((s) => s.progresos);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
+  const sonido = useSettingsStore((s) => s.sonido);
 
   return (
     <div className="space-y-3">
@@ -60,7 +61,7 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
             </div>
             {!hecha && !esActiva && (
               <button
-                onClick={() => { activar(q.id); onAbrir(q.id); }}
+                onClick={() => { sonar('blip', sonido); activar(q.id); onAbrir(q.id); }}
                 className="mt-3 w-full border border-ruta-xp bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-xp"
               >
                 {estado === 'reprogramada' ? '↻ REINTENTAR MISIÓN' : '▶ ACTIVAR MISIÓN'}
@@ -90,7 +91,9 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const completarMision = useQuestStore((s) => s.completarMision);
   const registrarRescate = useQuestStore((s) => s.registrarRescate);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
+  const nivelAntes = usePlayerStore((s) => s.jugador.nivel);
   const [dialogoAbierto, setDialogoAbierto] = useState<string | null>(null);
+  const sonido = useSettingsStore((s) => s.sonido);
 
   if (!quest) return <div className="font-pixel text-sm text-ruta-muted">Misión no encontrada.</div>;
 
@@ -112,7 +115,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
           {quest.recompensa.atributos ? ` (${Object.entries(quest.recompensa.atributos).map(([k, v]) => `+${v} ${k.slice(0, 3).toUpperCase()}`).join(', ')})` : ''}
         </div>
         {!esActiva && !hecha && (
-          <button onClick={() => activar(quest.id)} className="mt-3 w-full border border-ruta-xp bg-ruta-void p-3 font-pixel text-sm font-bold text-ruta-xp">
+          <button onClick={() => { sonar('blip', sonido); activar(quest.id); }} className="mt-3 w-full border border-ruta-xp bg-ruta-void p-3 font-pixel text-sm font-bold text-ruta-xp">
             {progreso.estado === 'reprogramada' ? '↻ REINTENTAR' : '▶ ACTIVAR MISIÓN'}
           </button>
         )}
@@ -127,7 +130,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
           return (
             <button
               key={itemId}
-              onClick={() => toggleCheck(quest.id, itemId)}
+              onClick={() => { sonar('blip', sonido); toggleCheck(quest.id, itemId); }}
               className={`mt-2 flex w-full items-center border p-3 text-left ${marcado ? 'border-ruta-xp bg-ruta-void' : 'border-ruta-line'}`}
             >
               <span className={`mr-3 flex h-5 w-5 items-center justify-center border ${marcado ? 'border-ruta-xp bg-ruta-xp' : 'border-ruta-muted'}`}>
@@ -156,11 +159,11 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
               {!hecho && esTurno && (
                 <div className="mt-2">
                   {paso.tipo === 'dialogo' && paso.dialogoId && dialogueById.has(paso.dialogoId) ? (
-                    <button onClick={() => setDialogoAbierto(paso.dialogoId!)} className="w-full border border-ruta-gold bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-gold">
+                    <button onClick={() => { sonar('blip', sonido); setDialogoAbierto(paso.dialogoId!); }} className="w-full border border-ruta-gold bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-gold">
                       💬 HABLAR
                     </button>
                   ) : (
-                    <button onClick={() => completarPaso(quest.id, paso.id)} className="w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-parchment">
+                    <button onClick={() => { sonar('paso', sonido); completarPaso(quest.id, paso.id); }} className="w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-parchment">
                       {paso.tipo === 'ir' ? '📍 YA LLEGUÉ' : '✓ MARCAR PASO'}
                     </button>
                   )}
@@ -174,13 +177,13 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
       {!hecha && (
         <div className="border-2 border-ruta-line bg-ruta-panel p-4">
           <button
-            onClick={() => todosPasos && completarMision(quest.id)}
+            onClick={() => { if (!todosPasos) return; completarMision(quest.id); const nivelAhora = usePlayerStore.getState().jugador.nivel; sonar(nivelAhora > nivelAntes ? 'nivel' : 'completar', sonido); }}
             disabled={!todosPasos}
             className={`w-full border p-3 font-pixel text-sm font-bold ${todosPasos ? 'border-ruta-gold bg-ruta-void text-ruta-gold' : 'border-ruta-line text-ruta-muted opacity-50'}`}
           >
             🏁 COMPLETAR MISIÓN (+{quest.recompensa.xp} XP)
           </button>
-          <button onClick={() => registrarRescate(quest.id)} className="mt-3 w-full border border-ruta-valentia p-3 font-pixel text-xs font-bold text-ruta-valentia">
+          <button onClick={() => { sonar('rescate', sonido); registrarRescate(quest.id); }} className="mt-3 w-full border border-ruta-valentia p-3 font-pixel text-xs font-bold text-ruta-valentia">
             🆘 FALLÓ POR CAUSA EXTERNA (+{quest.recompensaRescate?.xp ?? 0} XP parcial)
           </button>
           <p className="mt-2 text-center font-pixel text-[11px] leading-4 text-ruta-muted">
