@@ -384,5 +384,222 @@
     "precio": 80,
     "desbloqueo": { "tipo": "nivel", "nivel": 1 },
     "genero": "f"
+  },
+  {
+    "id": "poleron-capucha",
+    "nombre": "Polerón urbano",
+    "slot": "ropa",
+    "estilo": "poleron",
+    "color": "#3B6F68",
+    "precio": 140,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "camisa-cuadros",
+    "nombre": "Camisa a cuadros",
+    "slot": "ropa",
+    "estilo": "cuadros",
+    "color": "#B74E42",
+    "precio": 155,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "chaleco-viajero",
+    "nombre": "Chaleco viajero",
+    "slot": "ropa",
+    "estilo": "chaleco",
+    "color": "#C59A42",
+    "precio": 170,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "vestido-floral",
+    "nombre": "Vestido primaveral",
+    "slot": "ropa",
+    "estilo": "vestido-floral",
+    "color": "#C76583",
+    "precio": 175,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 },
+    "genero": "f"
+  },
+  {
+    "id": "polera-rayas",
+    "nombre": "Polera a rayas",
+    "slot": "ropa",
+    "estilo": "rayas",
+    "color": "#347B8B",
+    "precio": 105,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "traje-formal",
+    "nombre": "Traje formal",
+    "slot": "ropa",
+    "estilo": "traje",
+    "color": "#35445B",
+    "precio": 230,
+    "desbloqueo": { "tipo": "nivel", "nivel": 4 },
+    "genero": "m"
+  },
+  {
+    "id": "falda-plisada",
+    "nombre": "Falda plisada",
+    "slot": "pantalon",
+    "estilo": "falda-plisada",
+    "color": "#8A5579",
+    "precio": 125,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "f"
+  },
+  {
+    "id": "shorts-aventura",
+    "nombre": "Shorts de aventura",
+    "slot": "pantalon",
+    "estilo": "shorts",
+    "color": "#63804C",
+    "precio": 110,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "pantalon-negro",
+    "nombre": "Pantalón negro",
+    "slot": "pantalon",
+    "estilo": "jeans",
+    "color": "#34343D",
+    "precio": 95,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "zapatillas-urbanas",
+    "nombre": "Zapatillas urbanas",
+    "slot": "zapatos",
+    "estilo": "zapatillas",
+    "color": "#D36A48",
+    "precio": 125,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "botines-cuero",
+    "nombre": "Botines de cuero",
+    "slot": "zapatos",
+    "estilo": "altas",
+    "color": "#694632",
+    "precio": 160,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "pelo-rizado",
+    "nombre": "Rizos",
+    "slot": "pelo",
+    "estilo": "rizado",
+    "color": "#3A2A22",
+    "precio": 125,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "pelo-mono",
+    "nombre": "Moño alto",
+    "slot": "pelo",
+    "estilo": "mono",
+    "color": "#6B4A3A",
+    "precio": 135,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "f"
+  },
+  {
+    "id": "gorro-bucket",
+    "nombre": "Gorro pescador",
+    "slot": "gorro",
+    "estilo": "bucket",
+    "color": "#C76A4B",
+    "precio": 115,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "lentes-color",
+    "nombre": "Lentes de color",
+    "slot": "lentes",
+    "estilo": "color",
+    "color": "#7D5AC7",
+    "precio": 95,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "aros-estrellas",
+    "nombre": "Aros estrella",
+    "slot": "aros",
+    "estilo": "estrella",
+    "color": "#E7A92F",
+    "precio": 110,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "mochila-turquesa",
+    "nombre": "Mochila turquesa",
+    "slot": "mochila",
+    "estilo": "mochila",
+    "color": "#2C9B91",
+    "precio": 145,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "chaqueta-bomber",
+    "nombre": "Chaqueta bomber",
+    "slot": "ropa",
+    "estilo": "bomber",
+    "color": "#47745A",
+    "precio": 185,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 },
+    "genero": "m"
+  },
+  {
+    "id": "camisa-denim",
+    "nombre": "Camisa vaquera",
+    "slot": "ropa",
+    "estilo": "camisa",
+    "color": "#4E779B",
+    "precio": 150,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "m"
+  },
+  {
+    "id": "pantalon-pinzas",
+    "nombre": "Pantalón de vestir",
+    "slot": "pantalon",
+    "estilo": "jeans",
+    "color": "#454553",
+    "precio": 135,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "m"
+  },
+  {
+    "id": "blusa-lavanda",
+    "nombre": "Blusa lavanda",
+    "slot": "ropa",
+    "estilo": "blusa",
+    "color": "#9A78B7",
+    "precio": 145,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "f"
+  },
+  {
+    "id": "falda-cuadros",
+    "nombre": "Falda escocesa",
+    "slot": "pantalon",
+    "estilo": "falda-cuadros",
+    "color": "#A3484B",
+    "precio": 155,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 },
+    "genero": "f"
+  },
+  {
+    "id": "polera-corta",
+    "nombre": "Polera corta",
+    "slot": "ropa",
+    "estilo": "entallada",
+    "color": "#DB846E",
+    "precio": 105,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
   }
 ]

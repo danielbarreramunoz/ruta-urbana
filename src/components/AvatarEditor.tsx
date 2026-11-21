@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Avatar, Sprite, uiSvg } from './sprites';
 import { sonar } from '../game/audio';
 import { SLOT_ORDEN, esPropio, estaDesbloqueado, motivoBloqueo, porSlot } from '../game/cosmetics';
+import { cosmeticos } from '../game/data';
 import { usePlayerStore, useSettingsStore, type ResultadoCompra } from '../game/store';
 import type { CosmeticItem, CosmeticSlot, Equipamiento, Sexo } from '../game/types';
 
@@ -13,7 +15,12 @@ const RESULTADO: Record<ResultadoCompra, string> = {
   'no-existe': 'No existe',
 };
 
-/** Vestuario: avatar grande al centro, ranuras y tienda con fichas. */
+const PRENDA_LABEL: Record<string, string> = {
+  pelo: 'Pelo', gorro: 'Gorro', lentes: 'Lentes', barba: 'Barba', aros: 'Aros',
+  ropa: 'Ropa', pantalon: 'Pantalón', zapatos: 'Zapatos', tatuaje: 'Tatuaje', mochila: 'Mochila',
+};
+
+/** Vestuario pixel-art: probador, silueta en vivo y catálogo comprable por ranura. */
 export default function AvatarEditor() {
   const jugador = usePlayerStore((s) => s.jugador);
   const comprar = usePlayerStore((s) => s.comprarCosmetico);
@@ -21,40 +28,40 @@ export default function AvatarEditor() {
   const desequipar = usePlayerStore((s) => s.desequiparSlot);
   const renombrar = usePlayerStore((s) => s.renombrar);
   const sonido = useSettingsStore((s) => s.sonido);
-
-  /**
-   * Cambia la silueta. Lee la acción en el momento del clic y, si el módulo
-   * quedó desfasado (HMR o service worker viejo), escribe el estado directo.
-   */
-  const elegirSexo = (sexo: Sexo) => {
-    const store = usePlayerStore.getState();
-    if (typeof store.cambiarSexo === 'function') {
-      store.cambiarSexo(sexo);
-    } else {
-      usePlayerStore.setState((s) => ({
-        jugador: { ...s.jugador, sexo, updatedAt: new Date().toISOString() },
-      }));
-    }
-    sonar('blip', sonido);
-  };
-
-  const [slot, setSlot] = useState<CosmeticSlot>('pelo');
+  /** Categoría abierta en el modal. `null` = modal cerrado, la pantalla queda limpia. */
+  const [abierto, setAbierto] = useState<CosmeticSlot | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => {
     if (!aviso) return;
-    const t = setTimeout(() => setAviso(null), 2600);
-    return () => clearTimeout(t);
+    const t = window.setTimeout(() => setAviso(null), 2600);
+    return () => window.clearTimeout(t);
   }, [aviso]);
 
-  const items = porSlot(slot);
-  const labelSlot = SLOT_ORDEN.find((s) => s.id === slot)?.label ?? slot;
+  // Cerrar con Escape y congelar el scroll de fondo mientras el modal está abierto.
+  useEffect(() => {
+    if (!abierto) return;
+    const alTeclado = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAbierto(null);
+    };
+    window.addEventListener('keydown', alTeclado);
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', alTeclado);
+      document.body.style.overflow = previo;
+    };
+  }, [abierto]);
+
+  const items = abierto ? porSlot(abierto) : [];
+  const labelSlot = (abierto && SLOT_ORDEN.find((s) => s.id === abierto)?.label) || 'CATEGORÍA';
+  const totalRanuras = SLOT_ORDEN.length;
 
   /** Mismo equipamiento, con la prenda candidata puesta (o sin la ranura). */
-  const vista = (item?: CosmeticItem): Equipamiento => {
+  const vista = (paraSlot: CosmeticSlot, item?: CosmeticItem): Equipamiento => {
     const e = { ...jugador.equipado };
     if (item) e[item.slot] = item.id;
-    else delete e[slot];
+    else delete e[paraSlot];
     return e;
   };
 
@@ -72,8 +79,9 @@ export default function AvatarEditor() {
     }
     if (!esPropio(jugador, item)) {
       const r = comprar(item.id);
+      if (r === 'ok') equipar(item.id);
       sonar(r === 'ok' ? 'check' : 'blip', sonido);
-      setAviso(r === 'ok' ? `✓ ${item.nombre} comprado` : `${item.nombre}: ${RESULTADO[r]}`);
+      setAviso(r === 'ok' ? `✓ ${item.nombre} comprado y equipado` : `${item.nombre}: ${RESULTADO[r]}`);
       return;
     }
     equipar(item.id);
@@ -82,121 +90,175 @@ export default function AvatarEditor() {
   };
 
   const estado = (item: CosmeticItem) => {
-    if (jugador.equipado[item.slot] === item.id) return { txt: 'QUITAR', activo: true, off: false };
-    if (!estaDesbloqueado(jugador, item)) {
-      return { txt: `🔒 ${motivoBloqueo(jugador, item) ?? ''}`, activo: false, off: true };
-    }
-    if (esPropio(jugador, item)) return { txt: 'EQUIPAR', activo: false, off: false };
-    return { txt: `COMPRAR · ${item.precio}`, activo: false, off: jugador.fichas < item.precio };
+    if (jugador.equipado[item.slot] === item.id) return { texto: 'EQUIPADO', tipo: 'puesto' };
+    if (!estaDesbloqueado(jugador, item)) return { texto: motivoBloqueo(jugador, item) ?? 'BLOQUEADO', tipo: 'bloqueado' };
+    if (esPropio(jugador, item)) return { texto: 'EQUIPAR', tipo: 'propio' };
+    return { texto: `◉ ${item.precio} FICHAS`, tipo: 'comprar' };
   };
 
   return (
-    <div className="px-frame p-3">
-      <div className="flex items-center justify-between">
-        <span className="font-pixel text-sm font-bold text-ruta-parchment">VESTUARIO</span>
-        <span className="flex items-center gap-1 font-pixel text-[10px] font-bold text-ruta-gold">
-          <Sprite svg={uiSvg('coins')} size={11} /> {jugador.fichas} fichas
-        </span>
-      </div>
+    <section className="wardrobe-shell" aria-label="Vestuario">
+      <header className="wardrobe-heading">
+        <div>
+          <h2 className="wardrobe-title">VESTUARIO</h2>
+          <p className="wardrobe-kicker">TU AVATAR, TUS REGLAS</p>
+        </div>
+        <div className="wardrobe-coins"><Sprite svg={uiSvg('coins')} size={15} /> {jugador.fichas} <span>FICHAS</span></div>
+      </header>
 
-      <div className="mt-3 flex items-center gap-3">
-        <div
-          className="flex h-[126px] w-[112px] flex-none items-end justify-center border-2 border-ruta-gold bg-[radial-gradient(circle_at_50%_38%,#e9e4d4_0%,#c3bcab_100%)] pb-2"
-          style={{ clipPath: 'polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px))' }}
-        >
-          <Avatar equipado={jugador.equipado} sexo={jugador.sexo} alto={100} titulo="Tu avatar" />
+      <section className="wardrobe-profile" aria-label="Perfil del avatar">
+        <div className="wardrobe-portrait">
+          <div className="wardrobe-portrait-label">AVATAR · NV. {jugador.nivel}</div>
+          <div className="wardrobe-avatar-shadow" />
+          <Avatar equipado={jugador.equipado} sexo={jugador.sexo} alto={156} titulo="Tu avatar" />
+          <div className="wardrobe-spark" aria-hidden>✦</div>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <label className="font-pixel text-[9px] tracking-widest text-ruta-muted">NOMBRE</label>
+        <div className="wardrobe-profile-info">
+          <div className="wardrobe-look-label">PROBADOR EN VIVO</div>
+          <h3 className="wardrobe-profile-title">{jugador.equipado.ropa ? 'TU LOOK ACTUAL' : 'ARMA TU LOOK'}</h3>
+          <p className="wardrobe-description">Combina prendas y accesorios como quieras.</p>
+
+          <label className="wardrobe-field-label" htmlFor="wardrobe-name">NOMBRE</label>
           <input
+            id="wardrobe-name"
             key={jugador.nombre}
             defaultValue={jugador.nombre}
             onBlur={(e) => renombrar(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
             maxLength={24}
-            className="mt-1 w-full border-2 border-ruta-line bg-ruta-void px-2 py-1.5 font-pixel text-[12px] text-ruta-parchment focus:border-ruta-gold focus:outline-none"
+            className="wardrobe-name-input"
           />
-          <div className="mt-1.5 flex items-center gap-1">
-            <span className="font-pixel text-[9px] tracking-widest text-ruta-muted">SEXO</span>
+
+          <div className="wardrobe-field-label wardrobe-sex-label">SILUETA</div>
+          <div className="wardrobe-sex-switch" role="group" aria-label="Silueta del avatar">
             {(['f', 'm'] as Sexo[]).map((s) => (
               <button
                 key={s}
-                onClick={() => elegirSexo(s)}
-                className={`px-btn flex-1 py-1 font-pixel text-[9px] ${jugador.sexo === s ? 'px-btn--on' : 'text-ruta-muted'}`}
+                type="button"
+                aria-pressed={jugador.sexo === s}
+                onClick={() => {
+                  const store = usePlayerStore.getState();
+                  if (typeof store.cambiarSexo === 'function') store.cambiarSexo(s);
+                  else usePlayerStore.setState((prev) => ({ jugador: { ...prev.jugador, sexo: s, updatedAt: new Date().toISOString() } }));
+                  sonar('blip', sonido);
+                }}
+                className={`wardrobe-sex-option ${jugador.sexo === s ? 'is-selected' : ''}`}
               >
-                {s === 'f' ? 'MUJER' : 'HOMBRE'}
+                {s === 'f' ? '♀ MUJER' : '♂ HOMBRE'}
               </button>
             ))}
           </div>
-          <div className="mt-2 font-pixel text-[9px] leading-4 text-ruta-muted">
-            Nv. {jugador.nivel} · {jugador.cosmeticos.length} cosméticos
-          </div>
-          {aviso && <div className="mt-1 font-pixel text-[9px] leading-3 text-ruta-xp">{aviso}</div>}
+          <div className="wardrobe-collection-count">{cosmeticos.filter((item) => esPropio(jugador, item)).length} piezas propias · {cosmeticos.length} diseños</div>
         </div>
-      </div>
+      </section>
 
-      <div className="mt-3 flex flex-wrap gap-1">
-        {SLOT_ORDEN.map((s) => (
+      <section className="wardrobe-catalog" aria-label="Catálogo de prendas">
+        <div className="wardrobe-catalog-heading">
+          <div>
+            <h3>{totalRanuras} RANURAS PARA PERSONALIZAR</h3>
+            <p>Toca una categoría para ver sus opciones</p>
+          </div>
+        </div>
+
+        <nav className="wardrobe-tabs" aria-label="Categorías del vestuario">
+          {SLOT_ORDEN.map((s) => {
+            const equipadoId = jugador.equipado[s.id];
+            const equipadoNombre = equipadoId
+              ? cosmeticos.find((c) => c.id === equipadoId)?.nombre
+              : undefined;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => { setAbierto(s.id); setAviso(null); }}
+                className="wardrobe-tab"
+                aria-haspopup="dialog"
+              >
+                <span>{s.label}</span>
+                <span className="wardrobe-tab-wearing">{equipadoNombre ?? '—'}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {aviso && !abierto && <div className="wardrobe-notice" role="status">{aviso}</div>}
+      </section>
+
+      <footer className="wardrobe-footer">
+        <div>PELO · ROPA · ZAPATOS · ACCESORIOS</div>
+        <p>GANA FICHAS EN MISIONES Y ARMA TU PROPIO LOOK</p>
+      </footer>
+
+      {abierto && createPortal(
+        <div className="wardrobe-modal-backdrop">
           <button
-            key={s.id}
-            onClick={() => {
-              setSlot(s.id);
-              setAviso(null);
-            }}
-            className={`px-btn px-2 py-1 font-pixel text-[9px] ${slot === s.id ? 'px-btn--on' : 'text-ruta-muted'}`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+            type="button"
+            aria-label="Cerrar opciones"
+            className="wardrobe-modal-veil"
+            onClick={() => setAbierto(null)}
+          />
+          <div className="wardrobe-modal" role="dialog" aria-modal="true" aria-label={`Opciones de ${labelSlot}`}>
+            <header className="wardrobe-modal-heading">
+              <div className="wardrobe-modal-heading-copy">
+                <div className="wardrobe-modal-eyebrow">{PRENDA_LABEL[abierto]} · {items.length} DISEÑOS</div>
+                <h3 className="wardrobe-modal-title">{labelSlot}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAbierto(null)}
+                className="wardrobe-modal-close"
+                aria-label="Cerrar"
+                autoFocus
+              >
+                ✕
+              </button>
+            </header>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button
-          onClick={() => {
-            desequipar(slot);
-            sonar('blip', sonido);
-            setAviso(`${labelSlot}: sin prenda`);
-          }}
-          className={`px-btn flex items-center gap-2 p-1.5 text-left ${jugador.equipado[slot] ? '' : 'px-btn--on'}`}
-        >
-          <Avatar equipado={vista()} sexo={jugador.sexo} alto={40} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-pixel text-[10px] font-bold text-ruta-parchment">Sin prenda</span>
-            <span className="block font-pixel text-[9px] text-ruta-muted">
-              {jugador.equipado[slot] ? 'QUITAR' : 'PUESTO'}
-            </span>
-          </span>
-        </button>
+            <div className="wardrobe-modal-content">
+              {aviso && <div className="wardrobe-notice" role="status">{aviso}</div>}
+              <div className="wardrobe-items wardrobe-modal-items">
+              <button
+                type="button"
+                onClick={() => { desequipar(abierto); sonar('blip', sonido); setAviso(`${labelSlot}: sin prenda`); }}
+                className={`wardrobe-item ${!jugador.equipado[abierto] ? 'is-equipped' : ''}`}
+              >
+                <div className="wardrobe-item-preview"><Avatar equipado={vista(abierto)} sexo={jugador.sexo} alto={72} /></div>
+                <div className="wardrobe-item-meta">
+                  <span className="wardrobe-item-slot">{PRENDA_LABEL[abierto]}</span>
+                  <strong>Sin {abierto === 'ropa' ? 'ropa' : labelSlot.toLowerCase()}</strong>
+                  <span className={`wardrobe-item-status ${!jugador.equipado[abierto] ? 'status-equipped' : ''}`}>
+                    {!jugador.equipado[abierto] ? 'PUESTO' : 'QUITAR'}
+                  </span>
+                </div>
+              </button>
 
-        {items.map((item) => {
-          const est = estado(item);
-          return (
-            <button
-              key={item.id}
-              onClick={() => accion(item)}
-              className={`px-btn flex items-center gap-2 p-1.5 text-left ${est.activo ? 'px-btn--on' : ''} ${est.off ? 'opacity-55' : ''}`}
-            >
-              <Avatar equipado={vista(item)} sexo={jugador.sexo} alto={40} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-pixel text-[10px] font-bold text-ruta-parchment">
-                  {item.genero === 'f' ? '♀ ' : item.genero === 'm' ? '♂ ' : ''}
-                  {item.nombre}
-                </span>
-                <span className={`block font-pixel text-[9px] ${est.activo ? 'text-ruta-gold' : 'text-ruta-muted'}`}>
-                  {est.txt}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="mt-2 font-pixel text-[9px] leading-4 text-ruta-muted">
-        Gana fichas con misiones y desbloquea prendas por nivel. Los premios de misión también se pueden comprar.
-      </p>
-    </div>
+              {items.map((item) => {
+                const est = estado(item);
+                const bloqueado = est.tipo === 'bloqueado';
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => accion(item)}
+                    aria-label={`${item.nombre}: ${est.texto}`}
+                    className={`wardrobe-item ${est.tipo === 'puesto' ? 'is-equipped' : ''} ${bloqueado ? 'is-locked' : ''}`}
+                  >
+                    <div className="wardrobe-item-preview"><Avatar equipado={vista(abierto, item)} sexo={jugador.sexo} alto={72} /></div>
+                    <div className="wardrobe-item-meta">
+                      <span className="wardrobe-item-slot">{PRENDA_LABEL[item.slot]}{item.genero ? ` · ${item.genero === 'f' ? '♀' : item.genero === 'm' ? '♂' : '◇'}` : ''}</span>
+                      <strong>{item.nombre}</strong>
+                      <span className={`wardrobe-item-status status-${est.tipo}`}>{est.texto}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </section>
   );
 }

@@ -101,9 +101,52 @@ body::before {
   );
 }
 
-/* ── Mapa: tiles nocturnos + viñeta + scanlines ── */
-.osm-dark-tiles {
-  filter: invert(100%) hue-rotate(180deg) brightness(0.9) contrast(0.95) saturate(0.55);
+/* ── Mapa: momento del día + ambiente estacional + viñeta + scanlines ── */
+/* El filtro y los tintes llegan como variables CSS desde MapView (game/ambiente.ts).
+   El filtro va por baldosa (.osm-tiles), nunca en .leaflet-tile-pane: filtrar el
+   pane completo crea una textura gigante que el navegador recorta al arrastrar. */
+.osm-tiles {
+  filter: var(--ru-map-filter, none);
+}
+.mapa-noche .leaflet-container,
+.mapa-noche .leaflet-tile-pane {
+  background: var(--ru-map-fondo, #08080e) !important;
+}
+.mapa-dia .leaflet-container,
+.mapa-dia .leaflet-tile-pane {
+  background: var(--ru-map-fondo, #e8e4d8) !important;
+}
+/* Tintes de ambientación: capas planas (sin mix-blend-mode, que fuerza al navegador
+   a rasterizar todo el mapa como fondo y puede recortarlo al mover). */
+.ru-tinte-momento,
+.ru-tinte-ambiente {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ru-tinte-momento {
+  z-index: 350;
+  background: var(--ru-tinte, transparent);
+}
+.ru-tinte-ambiente {
+  z-index: 351;
+  background: var(--ru-tinte-ambiente, transparent);
+}
+/* Niebla en espacio de pantalla: cubre siempre el viewport, también al arrastrar. */
+.ru-niebla {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.mapa-dia .leaflet-control-attribution {
+  background: rgba(242, 232, 201, 0.85) !important;
+  color: #5a5a6a !important;
+}
+.mapa-dia .leaflet-control-attribution a {
+  color: #5a5a6a !important;
 }
 .leaflet-container {
   background: #08080e !important;
@@ -132,15 +175,504 @@ body::before {
   z-index: 401;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(5, 5, 11, 0.55) 100%),
+    radial-gradient(ellipse at 50% 55%, transparent 42%, var(--ru-vineta, rgba(5, 5, 11, 0.55)) 100%),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px);
+}
+
+/* ── Vestuario: probador claro inspirado en una ficha de catálogo 16-bit ── */
+.wardrobe-shell {
+  --wardrobe-paper: #f3e9c8;
+  --wardrobe-card: #fffdf5;
+  --wardrobe-ink: #1a1a24;
+  --wardrobe-muted: #686456;
+  --wardrobe-gold: #d49e00;
+  color: var(--wardrobe-ink);
+  padding: 16px;
+  border: 2px solid #e1ad13;
+  background:
+    repeating-linear-gradient(0deg, rgba(86, 71, 38, 0.025) 0 1px, transparent 1px 3px),
+    var(--wardrobe-paper);
+  box-shadow: 0 4px 0 #9b7410, inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.wardrobe-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 2px 12px;
+}
+.wardrobe-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+}
+.wardrobe-kicker,
+.wardrobe-catalog-heading p,
+.wardrobe-footer p {
+  margin: 4px 0 0;
+  font-size: 8px;
+  line-height: 1.4;
+  letter-spacing: 0.15em;
+  color: var(--wardrobe-muted);
+}
+.wardrobe-coins {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 800;
+}
+.wardrobe-coins span {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+.wardrobe-profile {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.75fr) minmax(0, 1.25fr);
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #d49e00;
+  background: rgba(255, 253, 245, 0.64);
+  box-shadow: inset 0 0 0 1px rgba(212, 158, 0, 0.12);
+}
+.wardrobe-portrait {
+  position: relative;
+  display: flex;
+  min-height: 208px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background:
+    repeating-linear-gradient(0deg, rgba(70, 59, 35, 0.035) 0 1px, transparent 1px 3px),
+    linear-gradient(150deg, #ded8c5, #d1c9b4);
+}
+.wardrobe-portrait-label {
+  position: absolute;
+  z-index: 1;
+  top: 7px;
+  left: 7px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #5e594c;
+}
+.wardrobe-avatar-shadow {
+  position: absolute;
+  bottom: 13px;
+  left: 50%;
+  width: 72%;
+  height: 15px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 253, 245, 0.72);
+}
+.wardrobe-portrait > span:not(.wardrobe-avatar-shadow) {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  filter: drop-shadow(0 2px 0 rgba(72, 59, 37, 0.16));
+}
+.wardrobe-spark {
+  position: absolute;
+  right: 9px;
+  bottom: 12px;
+  z-index: 1;
+  color: #d49e00;
+  font-size: 13px;
+}
+.wardrobe-profile-info {
+  min-width: 0;
+  align-self: center;
+}
+.wardrobe-look-label,
+.wardrobe-field-label {
+  display: block;
+  color: var(--wardrobe-muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+}
+.wardrobe-profile-title {
+  margin: 1px 0 5px;
+  font-size: 13px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+.wardrobe-description {
+  margin: 0 0 10px;
+  color: var(--wardrobe-muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+.wardrobe-name-input {
+  display: block;
+  width: 100%;
+  height: 29px;
+  margin-top: 3px;
+  padding: 4px 7px;
+  border: 1px solid #a99e83;
+  border-radius: 4px;
+  background: #fffefa;
+  color: #1a1a24;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  outline: none;
+}
+.wardrobe-name-input:focus {
+  border-color: #d49e00;
+  box-shadow: 0 0 0 2px rgba(212, 158, 0, 0.18);
+}
+.wardrobe-sex-label {
+  margin-top: 8px;
+}
+.wardrobe-sex-switch {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+}
+.wardrobe-sex-option {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 3px;
+  border: 1px solid #b6ad98;
+  border-radius: 4px;
+  background: #f8f4e8;
+  color: #4b483f;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  font-weight: 800;
+}
+.wardrobe-sex-option.is-selected {
+  border-color: #3173e8;
+  background: #dfe9ff;
+  color: #174caa;
+  box-shadow: inset 0 -2px 0 rgba(49, 115, 232, 0.18);
+}
+.wardrobe-collection-count {
+  margin-top: 8px;
+  color: var(--wardrobe-muted);
+  font-size: 7px;
+  line-height: 1.4;
+}
+.wardrobe-catalog {
+  margin-top: 18px;
+}
+.wardrobe-catalog-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 2px 8px;
+}
+.wardrobe-catalog-heading h3 {
+  margin: 0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+}
+.wardrobe-catalog-heading p {
+  margin-top: 3px;
+  font-size: 7px;
+  letter-spacing: 0.02em;
+}
+.wardrobe-current-slot {
+  flex: none;
+  color: #806000;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.wardrobe-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+.wardrobe-tab {
+  display: flex;
+  flex: 1 1 calc(33% - 4px);
+  min-width: 96px;
+  min-height: 34px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 7px;
+  border: 1px solid #bcb39d;
+  border-radius: 4px;
+  background: #fffdf5;
+  color: #36332d;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+}
+.wardrobe-tab > span:first-child {
+  font-size: 7px;
+  letter-spacing: 0.06em;
+}
+.wardrobe-tab-wearing {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: #8a7f63;
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Modal de opciones por categoría: la pantalla queda limpia hasta tocar una ranura. */
+.wardrobe-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px 10px env(safe-area-inset-bottom, 10px);
+}
+.wardrobe-modal-veil {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(13, 13, 20, 0.62);
+  cursor: pointer;
+}
+.wardrobe-modal {
+  position: relative;
+  display: flex;
+  width: min(640px, 100%);
+  max-height: min(88dvh, 800px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid #e1ad13;
+  background:
+    repeating-linear-gradient(0deg, rgba(86, 71, 38, 0.025) 0 1px, transparent 1px 3px),
+    #f3e9c8;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35), inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+  clip-path: polygon(0 8px, 8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px));
+}
+.wardrobe-modal-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(94, 82, 54, 0.24);
+  background: #f3e9c8;
+}
+.wardrobe-modal-heading-copy {
+  min-width: 0;
+}
+.wardrobe-modal-eyebrow {
+  color: #746b56;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.wardrobe-modal-title {
+  margin: 2px 0 0;
+  color: #1a1a24;
+  font-size: 14px;
+  font-weight: 900;
+}
+.wardrobe-modal-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #b6ad98;
+  border-radius: 4px;
+  background: #fffdf5;
+  color: #1a1a24;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  font-weight: 900;
+}
+.wardrobe-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px 14px;
+  scrollbar-color: #b6a878 #eee5cb;
+  scrollbar-width: thin;
+}
+.wardrobe-modal-items {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 600px) {
+  .wardrobe-modal-backdrop {
+    align-items: center;
+  }
+  .wardrobe-modal-items {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.wardrobe-notice {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border: 1px solid #d49e00;
+  background: #fff6d5;
+  color: #5a4709;
+  font-size: 8px;
+  line-height: 1.4;
+}
+.wardrobe-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.wardrobe-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 5px;
+  border: 1px solid #b8af9a;
+  border-radius: 5px;
+  background: var(--wardrobe-card);
+  color: var(--wardrobe-ink);
+  text-align: left;
+  box-shadow: 0 2px 0 rgba(58, 49, 31, 0.12);
+  transition: border-color 100ms, transform 100ms;
+}
+.wardrobe-item:active {
+  transform: translateY(1px);
+}
+.wardrobe-item.is-equipped {
+  border: 2px solid #d49e00;
+  padding: 4px;
+  box-shadow: 0 2px 0 #9b7410;
+}
+.wardrobe-item.is-locked {
+  background: #f2eee2;
+}
+.wardrobe-item-preview {
+  position: relative;
+  display: flex;
+  height: 72px;
+  align-items: end;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid #e3dece;
+  background: linear-gradient(180deg, #f5f1e5, #e6e0ce);
+}
+.wardrobe-item-preview::after {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 48px;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  content: '';
+}
+.wardrobe-item-preview > span {
+  position: relative;
+  z-index: 1;
+}
+.wardrobe-item-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 6px 3px 2px;
+}
+.wardrobe-item-slot {
+  color: #746b56;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.wardrobe-item-meta strong {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 8px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+}
+.wardrobe-item-status {
+  display: flex;
+  width: 100%;
+  min-height: 23px;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  padding: 3px 2px;
+  border: 1px solid #bdb49e;
+  border-radius: 3px;
+  background: #f3efdf;
+  color: #625b4c;
+  font-size: 6px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.status-puesto {
+  border-color: #806000;
+  background: #1a1a24;
+  color: #ffd23f;
+}
+.status-comprar {
+  border-color: #d49e00;
+  background: #fff5d1;
+  color: #6c5100;
+}
+.status-propio {
+  color: #3f6940;
+}
+.status-bloqueado {
+  color: #777267;
+}
+.wardrobe-footer {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(94, 82, 54, 0.2);
+  color: #39362d;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-align: center;
+}
+.wardrobe-footer p {
+  font-size: 6px;
+  letter-spacing: 0.09em;
+}
+@media (min-width: 420px) {
+  .wardrobe-shell { padding: 20px; }
+  .wardrobe-profile { grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr); gap: 14px; }
+  .wardrobe-portrait { min-height: 230px; }
+  .wardrobe-items { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .wardrobe-item-preview { height: 82px; }
+}
+@media (max-width: 350px) {
+  .wardrobe-shell { padding: 10px; }
+  .wardrobe-profile { grid-template-columns: 94px minmax(0, 1fr); gap: 8px; padding: 7px; }
+  .wardrobe-portrait { min-height: 190px; }
+  .wardrobe-portrait > span:not(.wardrobe-avatar-shadow) { transform: scale(0.84); }
+  .wardrobe-tab { padding-inline: 4px; font-size: 6px; }
 }
 
 /* ── Avatar del jugador ── */
 .ru-avatar {
   position: relative;
-  width: 48px;
-  height: 60px;
+  width: 56px;
+  height: 68px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -169,8 +701,23 @@ body::before {
 }
 .ru-avatar__body {
   position: relative;
+  width: 48px;
+  height: 58px;
+  flex: none;
   animation: ru-bob 1.6s steps(2, end) infinite;
-  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.65)) drop-shadow(0 0 5px rgba(255, 210, 63, 0.55));
+}
+.ru-avatar__frame {
+  position: absolute;
+  inset: 0;
+}
+.ru-avatar__frame svg {
+  display: block;
+  width: 48px;
+  height: 58px;
+}
+.ru-avatar__frame--b {
+  opacity: 0;
 }
 .ru-avatar__shadow {
   position: absolute;
@@ -192,16 +739,26 @@ body::before {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
-/* Caminar: bob más rápido y espejo según la dirección. */
 .ru-avatar--walk .ru-avatar__body {
-  animation: ru-walk 300ms steps(2, end) infinite;
+  animation: ru-walk-bob 320ms steps(2, end) infinite;
 }
-@keyframes ru-walk {
+.ru-avatar--walk .ru-avatar__frame--a {
+  animation: ru-step-a 280ms steps(1, end) infinite;
+}
+.ru-avatar--walk .ru-avatar__frame--b {
+  animation: ru-step-b 280ms steps(1, end) infinite;
+}
+@keyframes ru-step-a {
+  0%, 49.9% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes ru-step-b {
+  0%, 49.9% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+@keyframes ru-walk-bob {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
-}
-.ru-avatar--flip {
-  transform: scaleX(-1);
+  50% { transform: translateY(-1px); }
 }
 
 /* ── Pines de misión ── */
@@ -342,6 +899,8 @@ body::before {
   .ru-avatar__halo,
   .ru-avatar__body,
   .ru-avatar--walk .ru-avatar__body,
+  .ru-avatar__frame--a,
+  .ru-avatar__frame--b,
   .ru-pin--activa,
   .ru-ghost,
   .ru-xp-toast,

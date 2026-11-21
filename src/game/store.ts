@@ -3,10 +3,48 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { EQUIPADO_INICIAL, alternarPrenda, estaDesbloqueado, esPropio } from './cosmetics';
 import { cosmeticById, questById } from './data';
 import { cellsAround, xpPorCeldas } from './fog';
+import type { Ambiente, TemaMapa } from './ambiente';
 import type { Atributos, CosmeticSlot, DialogueNode, Jugador, Quest, QuestStatus, Sexo } from './types';
 
 const XP_BASE = 100;
 export const xpParaNivel = (nivel: number) => Math.round(XP_BASE * Math.pow(1.35, nivel - 1));
+
+/**
+ * localStorage con escritura diferida (~800 ms).
+ * Caminar mantenido mueve el mock 10 veces por segundo; serializar el arreglo
+ * `visited` (hasta 8000 celdas) en cada paso congelaba el mapa en móviles.
+ * El volcado final se fuerza en `pagehide`/`visibilitychange`.
+ */
+function storageDiferido(ms = 800) {
+  let timer: number | undefined;
+  let pendiente: [string, string] | null = null;
+  const volcar = () => {
+    clearTimeout(timer);
+    if (!pendiente) return;
+    const [clave, valor] = pendiente;
+    pendiente = null;
+    try {
+      localStorage.setItem(clave, valor);
+    } catch {
+      /* cuota llena: se pierde el último volcado, no la partida en curso */
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', volcar);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') volcar();
+    });
+  }
+  return {
+    getItem: (name: string) => localStorage.getItem(name),
+    setItem: (name: string, value: string) => {
+      pendiente = [name, value];
+      clearTimeout(timer);
+      timer = setTimeout(volcar, ms);
+    },
+    removeItem: (name: string) => localStorage.removeItem(name),
+  };
+}
 
 const jugadorInicial = (nombre = 'Viajero'): Jugador => ({
   id: 'jugador-local',
@@ -455,7 +493,10 @@ export const usePresenceStore = create<PresenceState>()((set) => ({
 
 /** Plaza de Armas, Santiago — origen del modo joystick. */
 export const DEFAULT_ORIGIN = { lat: -33.4372, lng: -70.6506 };
-export const JOYSTICK_STEP_M = 25;
+/** Metros por paso del pad (se repite mientras se mantiene pulsado). */
+export const JOYSTICK_STEP_M = 2;
+/** Intervalo entre pasos del pad al mantener: ~20 m/s, ágil sin teletransportar. */
+export const JOYSTICK_TICK_MS = 100;
 const MAX_VISITED = 8000;
 
 export interface AlertaProximidad {
@@ -503,7 +544,13 @@ export const useAlertStore = create<AlertState>()(
 
 interface SettingsState {
   sonido: boolean;
+  /** Tema visual del mapa: automático por hora o fijo. */
+  temaMapa: TemaMapa;
+  /** Ambiente estacional: automático por fecha o fijo. */
+  ambiente: Ambiente;
   toggleSonido: () => void;
+  setTemaMapa: (t: TemaMapa) => void;
+  setAmbiente: (a: Ambiente) => void;
 }
 
 /** Preferencias UI (persistidas). */
@@ -511,9 +558,26 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       sonido: true,
+      temaMapa: 'auto',
+      ambiente: 'auto',
       toggleSonido: () => set((s) => ({ sonido: !s.sonido })),
+      setTemaMapa: (t) => set({ temaMapa: t }),
+      setAmbiente: (a) => set({ ambiente: a }),
     }),
-    { name: 'ruta-urbana/ajustes', storage: createJSONStorage(() => localStorage) },
+    {
+      name: 'ruta-urbana/ajustes',
+      version: 2,
+      storage: createJSONStorage(() => localStorage),
+      // v1 guardaba `mapaTema: 'noche' | 'dia'`: se conserva como tema fijo.
+      migrate: (persistido, version) => {
+        const prev = (persistido ?? {}) as Record<string, unknown>;
+        if (version < 2 && typeof prev.mapaTema === 'string') {
+          prev.temaMapa = prev.mapaTema === 'dia' ? 'dia' : 'noche';
+        }
+        delete prev.mapaTema;
+        return prev as unknown as SettingsState;
+      },
+    },
   ),
 );
 
@@ -570,7 +634,7 @@ export const useExplorationStore = create<ExplorationState>()(
     {
       name: 'ruta-urbana/exploracion',
       version: 2,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(storageDiferido),
       partialize: (s) => ({
         mode: s.mode,
         mock: s.mock,

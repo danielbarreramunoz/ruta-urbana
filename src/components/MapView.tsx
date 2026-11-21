@@ -1,13 +1,24 @@
 import L from 'leaflet';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Joystick from './Joystick';
 import { Sprite, pinGlifo, pinSvg, uiSvg, type PinEstado } from './sprites';
-import { avatarSvg } from './avatar';
+import { avatarSvgRumbo, type RumboAvatar } from './avatar';
 import { quests } from '../game/data';
 import { REVEAL_RADIUS_M, XP_POR_CELDA, cellCenter } from '../game/fog';
 import { activarAvisos, useProximity } from '../game/useProximity';
 import { permisoAvisos } from '../game/alerts';
 import { proximoDestino } from '../game/proximity';
+import {
+  ESTACIONES,
+  ETIQUETA_ESTACION,
+  ETIQUETA_MOMENTO,
+  MOMENTOS,
+  estacionDe,
+  momentoDe,
+  paletaMapa,
+  type Estacion,
+  type MomentoDia,
+} from '../game/ambiente';
 import type { Equipamiento, Sexo } from '../game/types';
 import {
   buscarQuest,
@@ -19,12 +30,15 @@ import {
   useSettingsStore,
 } from '../game/store';
 
-const avatarHtml = (equipado: Equipamiento, sexo: Sexo, caminando = false, espejo = false) => `
-<div class="ru-avatar${caminando ? ' ru-avatar--walk' : ''}${espejo ? ' ru-avatar--flip' : ''}">
+const avatarHtml = (equipado: Equipamiento, sexo: Sexo, caminando = false, rumbo: RumboAvatar = 's') => `
+<div class="ru-avatar${caminando ? ' ru-avatar--walk' : ''}" data-rumbo="${rumbo}">
   <div class="ru-avatar__halo"></div>
   <div class="ru-avatar__shadow"></div>
   <div class="ru-avatar__ring"></div>
-  <div class="ru-avatar__body">${avatarSvg(equipado, sexo)}</div>
+  <div class="ru-avatar__body">
+    <div class="ru-avatar__frame ru-avatar__frame--a">${avatarSvgRumbo(equipado, sexo, 48, 58, rumbo, 0)}</div>
+    <div class="ru-avatar__frame ru-avatar__frame--b">${avatarSvgRumbo(equipado, sexo, 48, 58, rumbo, 1)}</div>
+  </div>
 </div>`;
 
 const pinHtml = (estado: PinEstado) =>
@@ -82,15 +96,36 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const avisosActivados = useAlertStore((s) => s.avisosActivados);
   const sonido = useSettingsStore((s) => s.sonido);
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
+  const temaMapa = useSettingsStore((s) => s.temaMapa) ?? 'auto';
+  const ambientePref = useSettingsStore((s) => s.ambiente) ?? 'auto';
+  const setTemaMapa = useSettingsStore((s) => s.setTemaMapa);
+  const setAmbiente = useSettingsStore((s) => s.setAmbiente);
+  const [panelTema, setPanelTema] = useState(false);
+  const [ahora, setAhora] = useState(() => new Date());
+  // Recalcula cada minuto, pero solo re-renderiza al cruzar de franja (hora o estación).
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const d = new Date();
+      setAhora((prev) =>
+        momentoDe(prev) === momentoDe(d) && estacionDe(prev) === estacionDe(d) ? prev : d,
+      );
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const momentoAuto = momentoDe(ahora);
+  const estacionAuto = estacionDe(ahora);
+  const momento: MomentoDia = temaMapa === 'auto' ? momentoAuto : temaMapa;
+  const estacion: Estacion = ambientePref === 'auto' ? estacionAuto : ambientePref;
+  const paleta = paletaMapa(momento, estacion);
+  const iconoTema = momento === 'dia' ? 'sol' : momento === 'atardecer' ? 'atardecer' : momento === 'madrugada' ? 'madrugada' : 'luna';
   const [seguir, setSeguir] = useState(true);
   const [caminando, setCaminando] = useState(false);
-  const [mirandoIzq, setMirandoIzq] = useState(false);
+  const [rumbo, setRumbo] = useState<RumboAvatar>('s');
   const [permisoAviso, setPermisoAviso] = useState(permisoAvisos());
   const abrirRef = useRef(onAbrirQuest);
   abrirRef.current = onAbrirQuest;
   const prevPosRef = useRef(efectiva);
   const pausaRef = useRef<number | undefined>(undefined);
-  const espejoRef = useRef(false);
 
   const questActiva = misionActivaId ? buscarQuest(misionActivaId) : undefined;
   const destinoRuta = proximoDestino(questActiva, progressos[misionActivaId ?? '']?.pasosCompletados ?? []);
@@ -99,19 +134,24 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   equipadoRef.current = equipado;
   sexoRef.current = sexo;
 
-  /** Pinta la niebla: base + grano + perforado radial suave en celdas visitadas. */
+  /** Pinta la niebla: base + grano + perforado radial suave en celdas visitadas.
+   *  El canvas vive en espacio de pantalla (no en el pane): siempre cubre el
+   *  viewport, incluso a mitad de un arrastre. */
   const dibujarNiebla = () => {
     const map = mapRef.current;
     const canvas = canvasRef.current;
     if (!map || !canvas) return;
     const size = map.getSize();
-    if (canvas.width !== size.x || canvas.height !== size.y) {
-      canvas.width = size.x;
-      canvas.height = size.y;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const ancho = Math.round(size.x * dpr);
+    const alto = Math.round(size.y * dpr);
+    if (canvas.width !== ancho || canvas.height !== alto) {
+      canvas.width = ancho;
+      canvas.height = alto;
     }
-    L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.clearRect(0, 0, size.x, size.y);
@@ -185,19 +225,14 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     mapRef.current = map;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      className: 'osm-dark-tiles',
+      // El filtro de tema va por baldosa (no en el pane): una capa filtrada del
+      // tamaño del pane se recorta al mover el mapa en GPUs móviles.
+      className: 'osm-tiles',
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
-    const canvas = document.createElement('canvas');
-    canvas.style.position = 'absolute';
-    canvas.style.pointerEvents = 'none';
-    canvas.style.zIndex = '400';
-    map.getPanes().overlayPane.appendChild(canvas);
-    canvasRef.current = canvas;
-
     const marker = L.marker([efectiva.lat, efectiva.lng], {
-      icon: L.divIcon({ html: avatarHtml(equipadoRef.current, sexoRef.current), className: '', iconSize: [48, 60], iconAnchor: [24, 44] }),
+      icon: L.divIcon({ html: avatarHtml(equipadoRef.current, sexoRef.current), className: '', iconSize: [56, 68], iconAnchor: [28, 52] }),
       interactive: false,
       keyboard: false,
       zIndexOffset: 1000,
@@ -220,13 +255,22 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     radiosRef.current = L.layerGroup().addTo(map);
     fantasmasRef.current = L.layerGroup().addTo(map);
 
-    const redibujar = () => dibujarRef.current();
-    map.on('moveend zoomend resize', redibujar);
+    // Redibuja la niebla durante el arrastre/zoom (throttle a un frame).
+    let pendiente = 0;
+    const programar = () => {
+      if (pendiente) return;
+      pendiente = window.requestAnimationFrame(() => {
+        pendiente = 0;
+        dibujarRef.current();
+      });
+    };
+    map.on('move zoom moveend zoomend resize', programar);
     // Si el jugador arrastra el mapa, deja de seguirlo (evita el "salto" al caminar).
     map.on('dragstart', () => setSeguir(false));
-    redibujar();
+    dibujarRef.current();
     return () => {
-      map.off('moveend zoomend resize', redibujar);
+      window.cancelAnimationFrame(pendiente);
+      map.off('move zoom moveend zoomend resize', programar);
       map.remove();
       mapRef.current = null;
       rutaRef.current = null;
@@ -326,7 +370,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     dibujarRef.current();
   }, [visited]);
 
-  // Detecta desplazamiento: activa la caminata y define hacia qué lado mira.
+  // Detecta desplazamiento: orienta el sprite y desplaza el paso hacia el rumbo.
   useEffect(() => {
     const prev = prevPosRef.current;
     prevPosRef.current = efectiva;
@@ -337,11 +381,12 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
       dLat * 111320,
       dLng * 111320 * Math.cos((efectiva.lat * Math.PI) / 180),
     );
-    if (metros < 2) return; // ignora ruido del GPS
-    if (Math.abs(dLng) > Math.abs(dLat) * 0.6) {
-      espejoRef.current = dLng < 0;
-      setMirandoIzq(espejoRef.current);
-    }
+    if (metros < 0.5) return; // ignora ruido del GPS
+    const x = dLng * 111320 * Math.cos((efectiva.lat * Math.PI) / 180);
+    const y = dLat * 111320;
+    const nuevoRumbo: RumboAvatar =
+      Math.abs(x) > Math.abs(y) ? (x > 0 ? 'e' : 'w') : y > 0 ? 'n' : 's';
+    setRumbo(nuevoRumbo);
     setCaminando(true);
     window.clearTimeout(pausaRef.current);
     pausaRef.current = window.setTimeout(() => setCaminando(false), 420);
@@ -349,17 +394,17 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
 
   useEffect(() => () => window.clearTimeout(pausaRef.current), []);
 
-  // Cambiar de ropa, caminar o girar refresca el avatar sobre el mapa.
+  // Cambiar de ropa, caminar o cambiar el rumbo refresca el avatar.
   useEffect(() => {
     markerRef.current?.setIcon(
       L.divIcon({
-        html: avatarHtml(equipado, sexo, caminando, mirandoIzq),
+        html: avatarHtml(equipado, sexo, caminando, rumbo),
         className: '',
-        iconSize: [48, 60],
-        iconAnchor: [24, 44],
+        iconSize: [56, 68],
+        iconAnchor: [28, 52],
       }),
     );
-  }, [equipado, sexo, caminando, mirandoIzq]);
+  }, [equipado, sexo, caminando, rumbo]);
 
   const centrar = () => {
     setSeguir(true);
@@ -373,8 +418,23 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div
+      className={`relative h-full w-full overflow-hidden ${paleta.claro ? 'mapa-dia' : 'mapa-noche'}`}
+      style={
+        {
+          '--ru-map-filter': paleta.filtro,
+          '--ru-map-fondo': paleta.fondo,
+          '--ru-tinte': paleta.tinte,
+          '--ru-tinte-ambiente': paleta.tinteAmbiente,
+          '--ru-vineta': paleta.vineta,
+        } as CSSProperties
+      }
+    >
       <div ref={contRef} className="absolute inset-0" />
+      {/* Tintes sobre las baldosas (bajo la niebla y los pines). */}
+      <div className="ru-tinte-momento" />
+      <div className="ru-tinte-ambiente" />
+      <canvas ref={canvasRef} className="ru-niebla" aria-hidden />
       <div className="ru-vignette" />
 
       {/* Banner de proximidad */}
@@ -435,6 +495,15 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
           <button onClick={toggleSonido} title={sonido ? 'Silenciar sonidos' : 'Activar sonidos'} aria-label={sonido ? 'Silenciar' : 'Activar sonido'} className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-muted">
             <Sprite svg={uiSvg(sonido ? 'soundOn' : 'soundOff')} size={16} />
           </button>
+          <button
+            onClick={() => setPanelTema((v) => !v)}
+            title={`Tema del mapa: ${ETIQUETA_MOMENTO[momento]} · ${ETIQUETA_ESTACION[estacion]}${temaMapa === 'auto' ? ' (auto)' : ''}`}
+            aria-label="Ajustar tema del mapa"
+            aria-expanded={panelTema}
+            className={`px-btn flex h-9 w-9 flex-none items-center justify-center ${paleta.claro ? 'text-ruta-gold' : 'text-ruta-muted'}`}
+          >
+            <Sprite svg={uiSvg(iconoTema)} size={16} />
+          </button>
           {!avisosActivados && permisoAviso !== 'denied' && (
             <button onClick={pedirAvisos} aria-label="Activar avisos" className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-burocracia">
               <Sprite svg={uiSvg('bell')} size={16} />
@@ -445,6 +514,43 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
         {(permiso === 'denegado' || permiso === 'no-fijado') && (
           <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] text-ruta-valentia">
             Sin GPS del navegador · usando pad
+          </div>
+        )}
+
+        {panelTema && (
+          <div className="px-frame space-y-2 p-2">
+            <div>
+              <div className="flex items-center justify-between font-pixel text-[9px] tracking-widest text-ruta-muted">
+                <span>MOMENTO</span>
+                <span className="text-ruta-gold">{temaMapa === 'auto' ? `AUTO · ${ETIQUETA_MOMENTO[momentoAuto]}` : 'FIJO'}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <button onClick={() => setTemaMapa('auto')} className={`px-btn px-2 py-1 font-pixel text-[10px] ${temaMapa === 'auto' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                  AUTO
+                </button>
+                {MOMENTOS.map((m) => (
+                  <button key={m} onClick={() => setTemaMapa(m)} className={`px-btn px-2 py-1 font-pixel text-[10px] ${temaMapa === m ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                    {ETIQUETA_MOMENTO[m].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between font-pixel text-[9px] tracking-widest text-ruta-muted">
+                <span>AMBIENTE</span>
+                <span className="text-ruta-gold">{ambientePref === 'auto' ? `AUTO · ${ETIQUETA_ESTACION[estacionAuto]}` : 'FIJO'}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <button onClick={() => setAmbiente('auto')} className={`px-btn px-2 py-1 font-pixel text-[10px] ${ambientePref === 'auto' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                  AUTO
+                </button>
+                {ESTACIONES.map((e) => (
+                  <button key={e} onClick={() => setAmbiente(e)} className={`px-btn px-2 py-1 font-pixel text-[10px] ${ambientePref === e ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                    {ETIQUETA_ESTACION[e].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

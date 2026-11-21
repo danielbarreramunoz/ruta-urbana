@@ -6,7 +6,7 @@ Presupuesto $0: todo gratuito/open-source, sin APIs de pago.
 ## Stack
 
 - Vite + React 19 + TypeScript estricto + Tailwind CSS v4 (`@theme` en `src/index.css`).
-- Mapa: **Leaflet** + tiles OSM estándar con filtro CSS nocturno (sin key; uso moderado según política de OSM). Atribución © OpenStreetMap incluida en el mapa.
+- Mapa: **Leaflet** + tiles OSM estándar con tema CSS automático (madrugada / día / atardecer / noche por hora local + ambiente estacional por fecha, `src/game/ambiente.ts`; ajuste manual en el panel del mapa). Sin key; uso moderado según política de OSM. Atribución © OpenStreetMap incluida en el mapa.
 - Estado: **zustand + persist a localStorage** (`ruta-urbana/*`). Sin backend.
 - PWA: `vite-plugin-pwa` (service worker autoUpdate, precache del app shell, runtime cache de tiles 7 días).
 
