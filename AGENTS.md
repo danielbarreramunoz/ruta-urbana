@@ -18,7 +18,42 @@ npm run build        # typecheck + build + PWA en dist/
 npm run preview      # sirve dist/ local
 ```
 
-Verificación antes de declarar listo: `npx tsc -b` limpio + `npm run build` OK + test de datos (`node -e` contra `src/game/data/*.json`, ver historial).
+Verificación antes de declarar listo: `npx tsc -b` limpio + `npm run build` OK + test de datos (`node -e` contra `src/game/data/*.json`, ver historial). Detalle del orden y trampas en "Verificación obligatoria" y "Store" abajo.
+
+## Verificación obligatoria (orden)
+
+```bash
+npx tsc -b          # mínimo en frontend; debe salir limpio
+npm run build       # incluye typecheck + PWA; timeout amplio (300000 ms)
+npm run lint        # oxlint; 0 errores. Preexistentes: 5× react(only-export-components) en sprites.tsx + 1× set-state-in-effect en geo.ts:26
+```
+
+- Sin tests unitarios en el repo. Para lógica pura (`fog.ts`, `cosmetics.ts`, `proximity.ts`, economía del store): compilar con `npx esbuild <file> --bundle --format=esm --outfile=/tmp/opencode/x.mjs` y correr `node` con stub de `localStorage`.
+- Validar catálogos con `node -e`: ids únicos en `cosmetics.json`, `premio`/`desbloqueo.mision` existentes en `quests.json`, `paga` numérica.
+- Tras cambiar `fog.ts`: correr el test de cobertura punto por punto (celdas nuevas pagan una vez; re-revelar no paga).
+
+## Store (zustand + persist): reglas que muerden
+
+- Claves `ruta-urbana/*` (`jugador`, `misiones`, `exploracion`, `alertas`, `ajustes`). Al agregar campos a `Jugador` o exploración: subir `version` + `migrate` + extender `normalizarJugador`/equivalente. Probar migración simulando un payload viejo en `localStorage` (v3 sin `sexo` → `'m'`).
+- `ganarXP` alimenta `useFxStore` (efímero, no persistido). `FxOverlay` además vigila `jugador.nivel` como red de seguridad: no romper ese doble camino.
+- Efectos agregados (`anunciarXp`) agrupan ráfagas (~1.2 s): no asumir 1 aviso = 1 llamada.
+- En handlers de UI, leer acciones nuevas con `usePlayerStore.getState()` en el momento del clic (o fallback con `setState`), no solo por selector: un módulo desfasado (HMR / service worker viejo) causó `cambiarSexo is not a function`.
+- `rescate` exige misión activa y paga una sola vez (`estado === 'activa'`); no relajar esa guarda.
+
+## Avatar paramétrico (`src/components/avatar.ts`)
+
+- Firma `avatarSvg(equipado, sexo, ancho, alto)`; string SVG, sin negro puro (bordes = `oscurecer()` del color de la prenda). Verificar con `grep -i "12121A\|TINTA"` vacío tras rediseños.
+- Silueta `Sexo = 'f' | 'm'`; prendas con `genero` solo etiquetan (♀/♂), no restringen.
+- Todo uso de `<Avatar>` / `avatarSvg` debe pasar `sexo` (`MapView`, `FxOverlay`, `AvatarEditor`). `MapView` refresca con `marker.setIcon` ante `[equipado, sexo, caminando, mirandoIzq]`.
+- Revisión visual: bundle con esbuild + raster a PNG en `/tmp/opencode/*.png` (script en `/tmp/opencode/render.cjs`, no commitear). Comparar outfits hombre/mujer antes de declarar listo.
+
+## Mapa / UI móvil
+
+- `MapView`: banner en wrapper `inset-x-0 px-3` + hijo `w-full`, ✕ dentro (`right-1.5 top-1.5`); fila GPS/PAD con `min-w-0`/`flex-none`; título con `break-words`. El contenedor raíz lleva `overflow-hidden`.
+- Ruta al destino = polyline recta punteada al próximo paso `ir` (`proximoDestino` en `proximity.ts`); honesto offline, sin ruteo pago.
+- "Ya llegué" solo habilitado dentro del radio; fuera muestra `A X M · ACÉRCATE`.
+- Pestañas del vestuario en wrap (no scroll oculto): MOCHILA debe verse sin scroll.
+- Recuadro grande del avatar con fondo claro (`#e9e4d4 → #c3bcab`) para prendas oscuras.
 
 ## Reglas duras
 
