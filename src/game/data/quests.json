@@ -1,0 +1,196 @@
+[
+  {
+    "id": "renovar-cedula",
+    "titulo": "Renovar cédula",
+    "descripcion": "Tu carnet venció y todo trámite lo pide. Hora en el Registro Civil, mesón, foto y firma.",
+    "categoria": "tramite",
+    "estado": "disponible",
+    "nivelMinimo": 1,
+    "requisitos": {
+      "items": ["carnet-vencido", "hora-agendada", "dinero-tarjeta"]
+    },
+    "pasos": [
+      {
+        "id": "cedula-prep",
+        "orden": 1,
+        "tipo": "preparacion",
+        "titulo": "Revisa tu mochila",
+        "detalle": "Marca cada requisito antes de salir: sin hora agendada te devuelven.",
+        "requiereItems": ["carnet-vencido", "hora-agendada", "dinero-tarjeta"],
+        "completado": false
+      },
+      {
+        "id": "cedula-ir",
+        "orden": 2,
+        "tipo": "ir",
+        "titulo": "Llega al Registro Civil",
+        "detalle": "Oficina centro. Entra, saca número de atención y espera tu turno mirando la pantalla.",
+        "destinoId": "registro-huerfanos",
+        "completado": false
+      },
+      {
+        "id": "cedula-dialogo",
+        "orden": 3,
+        "tipo": "dialogo",
+        "titulo": "Habla en el mesón",
+        "detalle": "Te atiende Don Tito. Sigue el guion palabra por palabra.",
+        "dialogoId": "don-tito-1",
+        "completado": false
+      },
+      {
+        "id": "cedula-firma",
+        "orden": 4,
+        "tipo": "accion",
+        "titulo": "Foto, huella y firma",
+        "detalle": "Mira a la cámara, pon el dedo donde te indiquen y firma igual que tu carnet anterior.",
+        "completado": false
+      },
+      {
+        "id": "cedula-comprobante",
+        "orden": 5,
+        "tipo": "accion",
+        "titulo": "Guarda el comprobante",
+        "detalle": "Pide el comprobante de retiro y anota la fecha. Sin ese papel no hay entrega.",
+        "completado": false
+      }
+    ],
+    "recompensa": { "xp": 100, "atributos": { "burocracia": 1 } },
+    "recompensaRescate": { "xp": 40 },
+    "ubicaciones": [
+      {
+        "id": "registro-huerfanos",
+        "nombre": "Registro Civil centro",
+        "latitud": -33.4425,
+        "longitud": -70.6536,
+        "radioM": 70
+      }
+    ]
+  },
+  {
+    "id": "compra-farmacia",
+    "titulo": "Compra en farmacia",
+    "descripcion": "Retirar un medicamento con receta. Trámite corto pero con modo discreto: nadie más necesita saber qué compras.",
+    "categoria": "salud",
+    "estado": "disponible",
+    "nivelMinimo": 1,
+    "requisitos": {
+      "items": ["receta-medica", "dinero-tarjeta"]
+    },
+    "pasos": [
+      {
+        "id": "farmacia-prep",
+        "orden": 1,
+        "tipo": "preparacion",
+        "titulo": "Prepara lo necesario",
+        "detalle": "Receta a la mano y medio de pago. Revisa el nombre exacto del medicamento.",
+        "requiereItems": ["receta-medica", "dinero-tarjeta"],
+        "completado": false
+      },
+      {
+        "id": "farmacia-ir",
+        "orden": 2,
+        "tipo": "ir",
+        "titulo": "Entra con discreción",
+        "detalle": "Farmacia de turno. Las notificaciones de esta misión son neutras por privacidad.",
+        "destinoId": "farmacia-turno",
+        "completado": false
+      },
+      {
+        "id": "farmacia-dialogo",
+        "orden": 3,
+        "tipo": "dialogo",
+        "titulo": "Pide en el mesón",
+        "detalle": "Te atiende Ana la Tens. Pide por el nombre genérico, es más barato.",
+        "dialogoId": "ana-tens-1",
+        "completado": false
+      },
+      {
+        "id": "farmacia-boleta",
+        "orden": 4,
+        "tipo": "accion",
+        "titulo": "Paga y guarda la boleta",
+        "detalle": "Pide boleta siempre: si el remedio falla, la necesitas para el cambio.",
+        "completado": false
+      }
+    ],
+    "recompensa": { "xp": 80, "atributos": { "supervivencia": 1 } },
+    "recompensaRescate": { "xp": 30 },
+    "ubicaciones": [
+      {
+        "id": "farmacia-turno",
+        "nombre": "Farmacia de turno",
+        "latitud": -33.439,
+        "longitud": -70.648,
+        "radioM": 60,
+        "sensible": true
+      }
+    ]
+  },
+  {
+    "id": "primer-dia-laboral",
+    "titulo": "Primer día laboral",
+    "descripcion": "Presentarte en tu nuevo trabajo sin perderte: marcar asistencia, conocer a tu tutor y sobrevivir al almuerzo.",
+    "categoria": "trabajo",
+    "estado": "disponible",
+    "nivelMinimo": 1,
+    "requisitos": {
+      "items": ["cv-impreso", "carnet-vigente", "almuerzo"]
+    },
+    "pasos": [
+      {
+        "id": "trabajo-prep",
+        "orden": 1,
+        "tipo": "preparacion",
+        "titulo": "Mochila del primer día",
+        "detalle": "CV, carnet y colación. Llega 15 minutos antes: el primer día no se improvisa.",
+        "requiereItems": ["cv-impreso", "carnet-vigente", "almuerzo"],
+        "completado": false
+      },
+      {
+        "id": "trabajo-ir",
+        "orden": 2,
+        "tipo": "ir",
+        "titulo": "Llega a la oficina",
+        "detalle": "Ubica la entrada de personal (no la principal) y anuncia tu RUT en recepción.",
+        "destinoId": "oficina-nueva",
+        "completado": false
+      },
+      {
+        "id": "trabajo-dialogo",
+        "orden": 3,
+        "tipo": "dialogo",
+        "titulo": "Habla con Seba",
+        "detalle": "Seba es tu tutor del primer día. Pregunta todo ahora, después da vergüenza.",
+        "dialogoId": "seba-1",
+        "completado": false
+      },
+      {
+        "id": "trabajo-marcar",
+        "orden": 4,
+        "tipo": "accion",
+        "titulo": "Marca asistencia",
+        "detalle": "Registra tu entrada donde te indicó Seba y anota tu horario de salida.",
+        "completado": false
+      },
+      {
+        "id": "trabajo-almuerzo",
+        "orden": 5,
+        "tipo": "accion",
+        "titulo": "Sobrevive al almuerzo",
+        "detalle": "Come con el equipo si te invitan: el primer almuerzo vale más que el CV.",
+        "completado": false
+      }
+    ],
+    "recompensa": { "xp": 120, "atributos": { "carisma": 1 } },
+    "recompensaRescate": { "xp": 50 },
+    "ubicaciones": [
+      {
+        "id": "oficina-nueva",
+        "nombre": "Oficina nueva",
+        "latitud": -33.435,
+        "longitud": -70.652,
+        "radioM": 80
+      }
+    ]
+  }
+]

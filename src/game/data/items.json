@@ -1,0 +1,58 @@
+[
+  {
+    "id": "carnet-vencido",
+    "nombre": "Carnet vencido",
+    "descripcion": "Tu cédula actual, aunque vencida sirve como respaldo.",
+    "icono": "id-card",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "hora-agendada",
+    "nombre": "Hora agendada",
+    "descripcion": "Comprobante de reserva (pantallazo o correo impreso).",
+    "icono": "ticket",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "dinero-tarjeta",
+    "nombre": "Dinero / tarjeta",
+    "descripcion": "Para pagar el trámite o la compra. Efectivo o débito.",
+    "icono": "coins",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "receta-medica",
+    "nombre": "Receta médica",
+    "descripcion": "Receta vigente con el nombre del medicamento.",
+    "icono": "recipe",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "cv-impreso",
+    "nombre": "CV impreso",
+    "descripcion": "Una copia de tu currículum por si la piden.",
+    "icono": "cv",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "carnet-vigente",
+    "nombre": "Carnet vigente",
+    "descripcion": "Documento de identidad al día para el contrato.",
+    "icono": "id-card",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  },
+  {
+    "id": "almuerzo",
+    "nombre": "Almuerzo / colación",
+    "descripcion": "Algo para comer el primer día sin gastar de más.",
+    "icono": "lunch",
+    "cantidad": 1,
+    "esRequisitoPrevio": true
+  }
+]

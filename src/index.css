@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ruta-void: #0d0d14;
+  --color-ruta-panel: #1a1a24;
+  --color-ruta-line: #2e2e3e;
+  --color-ruta-parchment: #f2e8c9;
+  --color-ruta-ink: #1a1a24;
+  --color-ruta-muted: #9aa0b2;
+  --color-ruta-hp: #ff4d4d;
+  --color-ruta-xp: #7cfc5a;
+  --color-ruta-gold: #ffd23f;
+  --color-ruta-carisma: #ffb347;
+  --color-ruta-valentia: #ff5d5d;
+  --color-ruta-burocracia: #6aa8ff;
+  --color-ruta-supervivencia: #7cfc5a;
+
+  --font-pixel: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ruta-void);
+  color: var(--color-ruta-parchment);
+  font-family: var(--font-pixel);
+  overscroll-behavior: none;
+}
+
+/* OSM claro → modo noche por CSS (sin API key) */
+.osm-dark-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(0.92) contrast(0.92) grayscale(0.15);
+}
+.leaflet-container {
+  background: #0d0d14;
+  font-family: var(--font-pixel);
+}
+.leaflet-bar a {
+  background: #1a1a24;
+  color: #f2e8c9;
+  border-color: #2e2e3e;
+}
+.leaflet-control-attribution {
+  background: rgba(13, 13, 20, 0.8) !important;
+  color: #9aa0b2 !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #9aa0b2 !important;
+}

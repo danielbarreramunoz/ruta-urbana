@@ -1,0 +1,198 @@
+[
+  {
+    "id": "don-tito-1",
+    "npcId": "don-tito",
+    "npcNombre": "Don Tito",
+    "retrato": "don-tito",
+    "texto": "Siguiente. Buenas, ¿qué trámite viene a hacer? Dígalo clarito que hay fila.",
+    "opciones": [
+      {
+        "id": "don-tito-1a",
+        "texto": "«Buenos días, vengo a renovar mi cédula. Tengo hora agendada.» (amable)",
+        "siguienteId": "don-tito-2",
+        "efecto": { "xp": 5, "atributos": { "carisma": 1 } }
+      },
+      {
+        "id": "don-tito-1b",
+        "texto": "«Renovación de cédula.» (directo)",
+        "siguienteId": "don-tito-2"
+      }
+    ]
+  },
+  {
+    "id": "don-tito-2",
+    "npcId": "don-tito",
+    "npcNombre": "Don Tito",
+    "retrato": "don-tito",
+    "texto": "Ya. Muéstreme su carnet vencido y el comprobante de la hora. ¿Trajo cómo pagar?",
+    "opciones": [
+      {
+        "id": "don-tito-2a",
+        "texto": "«Aquí está todo: carnet, hora y tarjeta.» (entregar)",
+        "siguienteId": "don-tito-3",
+        "efecto": { "xp": 5 }
+      },
+      {
+        "id": "don-tito-2b",
+        "texto": "«¿Se puede pagar aquí mismo?» (preguntar antes de buscar)",
+        "siguienteId": "don-tito-3"
+      }
+    ]
+  },
+  {
+    "id": "don-tito-3",
+    "npcId": "don-tito",
+    "npcNombre": "Don Tito",
+    "retrato": "don-tito",
+    "texto": "Perfecto, está todo en orden. Pase a la cámara 2: foto, huella y firma. No sonría como en las fotos de fiesta.",
+    "opciones": [
+      {
+        "id": "don-tito-3a",
+        "texto": "«Gracias, Don Tito. ¿El comprobante me lo dan ahí?»",
+        "siguienteId": "don-tito-4"
+      }
+    ]
+  },
+  {
+    "id": "don-tito-4",
+    "npcId": "don-tito",
+    "npcNombre": "Don Tito",
+    "retrato": "don-tito",
+    "texto": "Exacto, guarde ese papel como hueso santo. Sin comprobante no hay entrega. ¡Siguiente!",
+    "opciones": [
+      {
+        "id": "don-tito-4a",
+        "texto": "(Guardar el guion y volver a la misión)"
+      }
+    ]
+  },
+  {
+    "id": "don-tito-caido",
+    "npcId": "don-tito",
+    "npcNombre": "Don Tito",
+    "retrato": "don-tito",
+    "esRescate": true,
+    "texto": "Mire, le hablo claro: se cayó el sistema a nivel nacional. Hoy no sale ningún carnet. Vuelva mañana con los mismos papeles, no pierde la hora.",
+    "opciones": [
+      {
+        "id": "don-tito-caido-a",
+        "texto": "(Registrar fallo externo en la misión → XP parcial)"
+      }
+    ]
+  },
+  {
+    "id": "ana-tens-1",
+    "npcId": "ana-tens",
+    "npcNombre": "Ana la Tens",
+    "retrato": "ana-tens",
+    "texto": "Hola, dime. ¿Qué necesitas? Si es con receta, pásamela por favor.",
+    "opciones": [
+      {
+        "id": "ana-tens-1a",
+        "texto": "«Hola, vengo a retirar este medicamento, por favor.» (entregar receta)",
+        "siguienteId": "ana-tens-2",
+        "efecto": { "xp": 5 }
+      }
+    ]
+  },
+  {
+    "id": "ana-tens-2",
+    "npcId": "ana-tens",
+    "npcNombre": "Ana la Tens",
+    "retrato": "ana-tens",
+    "texto": "Lo tengo. Tengo la marca y el genérico: mismo compuesto, el genérico sale casi la mitad. ¿Cuál prefieres?",
+    "opciones": [
+      {
+        "id": "ana-tens-2a",
+        "texto": "«El genérico, por favor.» (ahorrar)",
+        "siguienteId": "ana-tens-3",
+        "efecto": { "xp": 5, "atributos": { "supervivencia": 1 } }
+      },
+      {
+        "id": "ana-tens-2b",
+        "texto": "«El de marca, es el que me recetaron.»",
+        "siguienteId": "ana-tens-3"
+      }
+    ]
+  },
+  {
+    "id": "ana-tens-3",
+    "npcId": "ana-tens",
+    "npcNombre": "Ana la Tens",
+    "retrato": "ana-tens",
+    "texto": "Listo. Revisa que la dosis y la fecha de vencimiento estén bien antes de pagar. ¿Boleta?",
+    "opciones": [
+      {
+        "id": "ana-tens-3a",
+        "texto": "«Sí, con boleta por favor. Gracias, Ana.»"
+      }
+    ]
+  },
+  {
+    "id": "ana-tens-quiebre",
+    "npcId": "ana-tens",
+    "npcNombre": "Ana la Tens",
+    "retrato": "ana-tens",
+    "esRescate": true,
+    "texto": "Pucha, te hablo honesta: está en quiebre de stock, llega mañana. No te puedo vender algo parecido sin receta nueva. Vuelve mañana temprano.",
+    "opciones": [
+      {
+        "id": "ana-tens-quiebre-a",
+        "texto": "(Registrar fallo externo en la misión → XP parcial)"
+      }
+    ]
+  },
+  {
+    "id": "seba-1",
+    "npcId": "seba",
+    "npcNombre": "Seba",
+    "retrato": "seba",
+    "texto": "¡Buena, tú debes ser el nuevo! Soy Seba, te apadrino hoy. Primera cosa: ¿ya marcaste asistencia o llegaste directo?",
+    "opciones": [
+      {
+        "id": "seba-1a",
+        "texto": "«Hola Seba, llegué directo. ¿Dónde se marca?»",
+        "siguienteId": "seba-2",
+        "efecto": { "xp": 5, "atributos": { "carisma": 1 } }
+      },
+      {
+        "id": "seba-1b",
+        "texto": "«Ya marqué en recepción.»",
+        "siguienteId": "seba-2"
+      }
+    ]
+  },
+  {
+    "id": "seba-2",
+    "npcId": "seba",
+    "npcNombre": "Seba",
+    "retrato": "seba",
+    "texto": "Bien. Segunda cosa: a la jefa no le gusta que le digan 'tía' ni que lleguen tarde a la reunión de las 9. ¿Alguna duda antes de partir?",
+    "opciones": [
+      {
+        "id": "seba-2a",
+        "texto": "«¿Dónde almuerzan? Traje colación.»",
+        "siguienteId": "seba-3"
+      },
+      {
+        "id": "seba-2b",
+        "texto": "«¿Cuál es mi puesto y mi primera tarea?»",
+        "siguienteId": "seba-3",
+        "efecto": { "xp": 5 }
+      }
+    ]
+  },
+  {
+    "id": "seba-3",
+    "npcId": "seba",
+    "npcNombre": "Seba",
+    "retrato": "seba",
+    "texto": "Buena pregunta, eso me gusta. Te muestro tu puesto y partimos. Y al almuerzo vienes con nosotros: el primer día no se come solo.",
+    "opciones": [
+      {
+        "id": "seba-3a",
+        "texto": "(Volver a la misión con el guion aprendido)"
+      }
+    ]
+  }
+]
