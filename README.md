@@ -34,7 +34,7 @@ En el teléfono: abre la URL, **Agregar a pantalla de inicio**, y sal a caminar.
 | Capa | Tecnología |
 |---|---|
 | App | Vite + React 19 + TypeScript estricto + Tailwind CSS v4 |
-| Mapa | Leaflet + tiles OSM estándar (filtro CSS nocturno, atribución incluida) |
+| Mapa | Leaflet + tiles OSM estándar (tema día/noche/atardecer/madrugada automático por hora + ambiente estacional por fecha, atribución incluida) |
 | Estado | zustand + persist a `localStorage` (`ruta-urbana/*`), sin backend |
 | PWA | `vite-plugin-pwa` (service worker autoUpdate, precache del app shell, caché de tiles 7 días) |
 | Audio | Web Audio retro, sin archivos, muteable |
@@ -76,6 +76,10 @@ Más detalle (orden, persist/migraciones, avatar, mapa móvil) en [`AGENTS.md`](
 ## Video promocional
 
 `promo/ruta-urbana-promo.html` es un video vertical **1080×1920 (24 s)** animado con Canvas, con **música chiptune sintetizada en vivo** (Web Audio, sin archivos ni red). Ábrelo en Chrome/Edge (o en `http://localhost:5173/promo/ruta-urbana-promo.html` con `npm run dev`) y pulsa **● Grabar WebM**: descarga `ruta-urbana-promo.webm` con video + audio. **♪ Descargar WAV** exporta el tema de 24 s por separado.
+
+La segunda versión, independiente de la primera, está en `promo/ruta-urbana-promo-2.html`: cinco escenas nuevas y tema downtempo original en Fa sostenido menor (80 BPM), con duración exacta de 24 s. Ábrela en `http://localhost:5173/promo/ruta-urbana-promo-2.html` con `npm run dev`; exporta `ruta-urbana-promo-2.webm` y `ruta-urbana-tema-2.wav`.
+
+La tercera, centrada en la interfaz real de la app (HUD, mapa con niebla, pad, misiones y radar), está en `promo/ruta-urbana-promo-3.html`: tema original a 100 BPM en La menor, también de 24 s. Exporta `ruta-urbana-promo-3.webm` y `ruta-urbana-tema-3.wav`; acepta `?t=12` para abrir un fotograma concreto.
 
 ```bash
 ffmpeg -i ruta-urbana-promo.webm -c:v libx264 -c:a aac -pix_fmt yuv420p promo.mp4

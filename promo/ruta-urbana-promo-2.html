@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101820" />
+  <title>Ruta Urbana · Promo 2 — La ciudad es tu aventura</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0a1118; --panel: #121f29; --line: #29414d; --text: #e4f0e8; --muted: #8ea6aa; --mint: #56efc1; --coral: #ff806c; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 80% 0%, #182c35 0, var(--bg) 52%); color: var(--text); font: 14px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; }
+    .shell { width: min(1320px, 100%); margin: auto; padding: 20px; display: grid; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); gap: 24px; align-items: start; }
+    h1 { color: var(--mint); font: 800 16px/1.3 ui-monospace, monospace; letter-spacing: .14em; margin: 4px 0 8px; }
+    p { color: var(--muted); margin: 0; }
+    .tag { color: var(--coral); font: 700 11px/1.4 ui-monospace, monospace; letter-spacing: .15em; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 10px; }
+    button { border: 1px solid var(--line); border-radius: 7px; background: #15232c; color: var(--text); padding: 11px 14px; font: 700 12px/1 ui-monospace, monospace; cursor: pointer; transition: background .15s, transform .15s, border-color .15s; }
+    button:hover { border-color: var(--mint); background: #1b303a; }
+    button:active { transform: translateY(1px); }
+    button.primary { color: #081711; background: var(--mint); border-color: var(--mint); }
+    button.primary:hover { background: #8cf6d6; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .status { min-height: 22px; color: var(--muted); font: 12px/1.5 ui-monospace, monospace; }
+    .status.ok { color: var(--mint); }
+    .status.err { color: #ff9586; }
+    .info { margin-top: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #101c24; }
+    .info h2 { margin: 0 0 8px; color: var(--coral); font: 700 11px/1.4 ui-monospace, monospace; letter-spacing: .16em; }
+    .info ol { padding-left: 20px; margin: 0; color: var(--muted); font-size: 12px; }
+    .info li { margin: 6px 0; }
+    .info b { color: var(--text); }
+    code { color: var(--mint); overflow-wrap: anywhere; }
+    .stage { position: relative; min-width: 0; }
+    canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: 88vh; margin: auto; border: 1px solid #45606a; border-radius: 14px; background: #101820; box-shadow: 0 22px 80px #0009; }
+    .caption { color: var(--muted); font: 11px ui-monospace, monospace; text-align: center; margin-top: 9px; }
+    @media (max-width: 820px) { .shell { grid-template-columns: 1fr; padding: 14px; gap: 15px; } .stage { grid-row: 1; } canvas { max-height: 68vh; } .info { margin-top: 12px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <aside>
+      <div class="tag">UNA NUEVA MIRADA · 02</div>
+      <h1>RUTA URBANA</h1>
+      <p>Tu barrio no es solo un lugar. Es un mapa por descubrir. Video vertical nuevo, 24 segundos, con música original creada para esta versión.</p>
+      <div class="controls">
+        <button id="play" class="primary">▶ PREVISUALIZAR</button>
+        <button id="rec">● GRABAR 24 S</button>
+        <button id="music">♪ MÚSICA: ON</button>
+        <button id="wav">↓ BAJAR WAV</button>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite">Listo. Previsualiza o graba la promo.</div>
+      <section class="info">
+        <h2>EXPORTAR</h2>
+        <ol>
+          <li>Abre esta página en <b>Chrome o Edge</b>.</li>
+          <li><b>Grabar 24 s</b> descarga un WebM con la pista nueva.</li>
+          <li><b>Bajar WAV</b> exporta la canción exacta de 24 s por separado.</li>
+          <li>Para MP4: <code>ffmpeg -i ruta-urbana-promo-2.webm -c:v libx264 -c:a aac -pix_fmt yuv420p ruta-urbana-promo-2.mp4</code></li>
+          <li>Canvas y sonido se generan localmente; sin librerías ni recursos externos.</li>
+        </ol>
+      </section>
+    </aside>
+    <section class="stage" aria-label="Previsualización del video promocional">
+      <canvas id="film" width="1080" height="1920" aria-label="Promo 2 de Ruta Urbana, 24 segundos"></canvas>
+      <div class="caption">01 · TU BARRIO, EN CLAVE DE AVENTURA</div>
+    </section>
+  </main>
+<script>
+(() => {
+  'use strict';
+
+  // Promo 2: composición, historia, gráficos y tema propios. 5 actos / 24 s.
+  const canvas = document.getElementById('film');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const captionEl = document.querySelector('.caption');
+  const playBtn = document.getElementById('play');
+  const recordBtn = document.getElementById('rec');
+  const musicBtn = document.getElementById('music');
+  const wavBtn = document.getElementById('wav');
+  const W = canvas.width;
+  const H = canvas.height;
+  const DURATION = 24;
+  const COLORS = {
+    deep: '#101820', night: '#152732', panel: '#172a34', road: '#253a43',
+    mint: '#56efc1', mintDim: '#248d7c', coral: '#ff806c', pale: '#e4f0e8',
+    muted: '#8ea6aa', blue: '#7bb7d1', shadow: '#0a1118', lavender: '#b3a1f5',
+  };
+  const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+  const mix = (a, b, t) => a + (b - a) * t;
+  const ease = (t) => { const x = clamp(t); return x * x * (3 - 2 * x); };
+  const pulse = (t, speed = 1) => (Math.sin(t * speed * Math.PI * 2) + 1) / 2;
+
+  function rr(x, y, w, h, r, fill, stroke, lineWidth = 2) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth; ctx.stroke(); }
+  }
+  function txt(value, x, y, size, color = COLORS.pale, opts = {}) {
+    ctx.save();
+    ctx.font = `${opts.weight ?? 700} ${size}px ${opts.font ?? 'ui-sans-serif, system-ui, sans-serif'}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = opts.align ?? 'left';
+    ctx.textBaseline = opts.baseline ?? 'alphabetic';
+    if (opts.spacing && 'letterSpacing' in ctx) ctx.letterSpacing = `${opts.spacing}px`;
+    if (opts.glow) { ctx.shadowColor = color; ctx.shadowBlur = opts.glow; }
+    if (opts.alpha !== undefined) ctx.globalAlpha = opts.alpha;
+    ctx.fillText(value, x, y);
+    ctx.restore();
+  }
+  function line(points, color, width = 3, alpha = 1, dash = []) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.stroke();
+    ctx.restore();
+  }
+  function glowDot(x, y, r, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = r * 3;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  function background(t, accent = COLORS.mint) {
+    const g = ctx.createLinearGradient(0, 0, W * 0.8, H);
+    g.addColorStop(0, '#101820');
+    g.addColorStop(0.55, '#152732');
+    g.addColorStop(1, '#0b131a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    // diffuse aurora columns instead of the first promo's pixel dust.
+    for (let i = 0; i < 4; i++) {
+      const x = 100 + i * 300 + Math.sin(t * 0.28 + i) * 36;
+      const beam = ctx.createRadialGradient(x, 600, 20, x, 600, 500);
+      beam.addColorStop(0, `${accent}18`);
+      beam.addColorStop(1, `${accent}00`);
+      ctx.fillStyle = beam;
+      ctx.fillRect(x - 500, 0, 1000, H);
+    }
+    // A sparse star field, animated slowly in the upper half.
+    for (let i = 0; i < 36; i++) {
+      const x = (i * 317 + 61) % W;
+      const y = (i * 173 + 97) % 760;
+      const a = 0.12 + pulse(t + i * 0.13, 0.23) * 0.42;
+      ctx.fillStyle = `rgba(206,242,228,${a})`;
+      ctx.fillRect(x, y, i % 7 === 0 ? 3 : 2, i % 7 === 0 ? 3 : 2);
+    }
+  }
+  function footer(index, label, t) {
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    txt(`RUTA URBANA   /   ${String(index).padStart(2, '0')}`, 72, 1810, 21, COLORS.muted, { font: 'ui-monospace, monospace', spacing: 2 });
+    txt(label.toUpperCase(), W - 72, 1810, 20, COLORS.mint, { align: 'right', font: 'ui-monospace, monospace', spacing: 2 });
+    rr(72, 1842, 936, 3, 2, '#ffffff20');
+    rr(72, 1842, 936 * clamp(t / DURATION), 3, 2, COLORS.mint);
+    ctx.restore();
+  }
+  function skyline(t, yBase = 1030) {
+    const buildings = [
+      [0, 760, 126, 480], [108, 660, 120, 580], [218, 815, 160, 425],
+      [370, 595, 138, 645], [500, 725, 175, 515], [663, 630, 120, 610],
+      [775, 780, 145, 460], [914, 660, 166, 580],
+    ];
+    buildings.forEach(([x, y, w, h], b) => {
+      const top = Math.max(y, yBase - h);
+      rr(x, top, w, yBase - top, 9, b % 2 ? '#152630' : '#192d37', '#29414d', 2);
+      for (let wx = x + 18; wx < x + w - 12; wx += 28) {
+        for (let wy = top + 22; wy < yBase - 20; wy += 34) {
+          const lit = (b * 13 + wx * 3 + wy * 7) % 5 === 0;
+          ctx.fillStyle = lit ? (b % 2 ? '#ffb86a44' : '#56efc155') : '#8ea6aa18';
+          ctx.fillRect(wx, wy + Math.sin(t * 0.6 + wx) * 1.4, 9, 13);
+        }
+      }
+    });
+    const horizon = ctx.createLinearGradient(0, yBase - 150, 0, yBase + 160);
+    horizon.addColorStop(0, '#56efc100');
+    horizon.addColorStop(0.58, '#56efc11c');
+    horizon.addColorStop(1, '#56efc100');
+    ctx.fillStyle = horizon;
+    ctx.fillRect(0, yBase - 160, W, 320);
+  }
+  function drawRunner(x, y, scale, t, phase = 0, accent = COLORS.mint) {
+    const step = Math.sin(t * 12 + phase);
+    const bob = Math.abs(step) * scale * 2.2;
+    ctx.save();
+    ctx.translate(x, y - bob);
+    ctx.scale(scale, scale);
+    // shadow and aura
+    ctx.fillStyle = '#050a0d88';
+    ctx.beginPath(); ctx.ellipse(0, 8, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+    glowDot(0, -31, 29, accent, 0.12);
+    // legs in alternating actual poses
+    line([[-5, -20], [-8 + step * 5, -7], [-14 + step * 9, 4]], '#c4d4cf', 7);
+    line([[5, -20], [8 - step * 5, -7], [14 - step * 9, 4]], '#8ea6aa', 7);
+    // torso, backpack and head; original promo uses no version-one sprite art.
+    rr(-13, -48, 26, 30, 8, '#253c49', '#56efc1', 2);
+    rr(-18, -43, 9, 22, 5, '#b97954', '#5a413a', 2);
+    line([[-8, -39], [-14 + step * 3, -24]], '#c4d4cf', 6);
+    line([[8, -39], [13 - step * 3, -23]], '#c4d4cf', 6);
+    ctx.fillStyle = '#eac39a';
+    ctx.beginPath(); ctx.arc(0, -59, 11, 0, Math.PI * 2); ctx.fill();
+    rr(-12, -73, 24, 12, 6, '#1c2931', '#516773', 2);
+    ctx.restore();
+  }
+
+  // Act I · establish a new, cinematic night-world and the central question.
+  function actHook(t, local) {
+    background(t, COLORS.coral);
+    skyline(t, 1140);
+    const reveal = ease(local / 1.1);
+    const cx = W / 2;
+    ctx.save();
+    ctx.globalAlpha = reveal;
+    for (let i = 0; i < 4; i++) {
+      ctx.strokeStyle = `rgba(86,239,193,${0.18 - i * 0.03})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx, 990, 170 + i * 92 + pulse(t + i, 0.18) * 18, 46 + i * 27, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+    txt('¿Y SI TU BARRIO', cx, 600, 62, COLORS.pale, { align: 'center', weight: 650, alpha: reveal });
+    txt('FUERA UN JUEGO?', cx, 686, 65, COLORS.mint, { align: 'center', weight: 850, glow: 18, alpha: reveal });
+    txt('MIRA LA CIUDAD DE OTRA FORMA', cx, 760, 23, COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 3, alpha: reveal });
+    const walkX = mix(250, 828, ease(local / 3.4));
+    drawRunner(walkX, 1190, 2.1, t, 0, COLORS.coral);
+    footer(1, 'La aventura empieza aquí', t);
+  }
+
+  const blocks = [
+    [0.08,0.12,0.23,0.14], [0.39,0.1,0.2,0.17], [0.68,0.13,0.23,0.15],
+    [0.1,0.37,0.18,0.2], [0.37,0.36,0.25,0.18], [0.71,0.38,0.19,0.17],
+    [0.08,0.67,0.22,0.18], [0.4,0.65,0.18,0.21], [0.69,0.67,0.23,0.17],
+  ];
+  function drawMap(x, y, w, h, local, scale = 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    rr(0, 0, w, h, 30, '#111f28', '#34515c', 2);
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(0, 0, w, h, 30); ctx.clip();
+    ctx.fillStyle = '#14252d'; ctx.fillRect(0, 0, w, h);
+    // Street grid drawn as angled avenues, with individual neighborhood blocks.
+    for (let i = 0; i < 6; i++) {
+      const sx = (i * 0.22 * w + 20) % (w + 60) - 30;
+      line([[sx, -20], [sx + 75, h + 20]], '#243b44', 32, 0.8);
+      line([[sx, -20], [sx + 75, h + 20]], '#425961', 2, 0.52, [8, 15]);
+    }
+    for (let i = 0; i < 7; i++) {
+      const sy = i * h / 6;
+      line([[-20, sy], [w + 20, sy + (i % 2 ? 18 : -12)]], '#243b44', 28, 0.85);
+      line([[-20, sy], [w + 20, sy + (i % 2 ? 18 : -12)]], '#425961', 2, 0.48, [8, 14]);
+    }
+    blocks.forEach(([bx, by, bw, bh], i) => {
+      const bx1 = bx * w, by1 = by * h, bw1 = bw * w, bh1 = bh * h;
+      rr(bx1, by1, bw1, bh1, 12, i % 3 === 0 ? '#20363a' : '#1b3038', '#314b51', 1.5);
+      for (let j = 0; j < 5; j++) {
+        ctx.fillStyle = (i + j) % 3 === 0 ? '#ffbd7555' : '#56efc133';
+        ctx.fillRect(bx1 + 14 + j * Math.max(12, bw1 / 7), by1 + 16 + (j % 2) * 15, 6, 6);
+      }
+    });
+    // Route joins three streets; it brightens as the fog circle advances.
+    const route = [[w * .12, h * .83], [w * .28, h * .72], [w * .39, h * .55], [w * .56, h * .5], [w * .66, h * .31], [w * .84, h * .22]];
+    line(route, '#56efc133', 23, 1);
+    line(route, COLORS.mint, 5, 0.96);
+    const p = clamp(local / 4.5) * (route.length - 1);
+    const i = Math.min(route.length - 2, Math.floor(p));
+    const f = p - i;
+    const px = mix(route[i][0], route[i + 1][0], f);
+    const py = mix(route[i][1], route[i + 1][1], f);
+    // Bright revealed area is a moving radial aperture over the street map.
+    const fog = ctx.createRadialGradient(px, py, 20, px, py, 235);
+    fog.addColorStop(0, '#56efc100'); fog.addColorStop(0.55, '#56efc00c'); fog.addColorStop(1, '#0a1118d9');
+    ctx.fillStyle = fog; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#56efc1'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(px, py, 27 + pulse(local, .8) * 5, 0, Math.PI * 2); ctx.stroke();
+    glowDot(px, py, 8, COLORS.mint, 1);
+    drawRunner(px, py + 6, 0.64, local, 0, COLORS.mint);
+    ctx.restore();
+    ctx.restore();
+    return [x + px * scale, y + py * scale];
+  }
+  // Act II · the map is navigated and revealed by a real walk.
+  function actMap(t, local) {
+    background(t);
+    txt('SAL A EXPLORAR', 76, 152, 25, COLORS.mint, { font: 'ui-monospace, monospace', spacing: 4 });
+    txt('Cada paso', 76, 264, 65, COLORS.pale, { weight: 750 });
+    txt('abre camino.', 76, 340, 65, COLORS.pale, { weight: 750 });
+    txt('La niebla se despeja', 76, 407, 25, COLORS.muted, { weight: 500 });
+    txt('mientras te mueves.', 76, 443, 25, COLORS.muted, { weight: 500 });
+    drawMap(73, 510, 934, 1060, local);
+    rr(102, 1585, 390, 78, 18, '#14232c', '#34515c', 1.5);
+    glowDot(140, 1624, 9, COLORS.mint, .95);
+    txt('ZONA REVELADA', 165, 1632, 20, COLORS.pale, { font: 'ui-monospace, monospace', spacing: 1 });
+    txt('100 m', 939, 1631, 24, COLORS.mint, { align: 'right', font: 'ui-monospace, monospace' });
+    footer(2, 'Explora a tu ritmo', t);
+  }
+
+  // Act III · a mission appears as an invitation, not as a copy of the first promo's card.
+  function actQuest(t, local) {
+    background(t, COLORS.coral);
+    skyline(t, 1450);
+    const ping = pulse(t, 1.1);
+    const pinX = 540, pinY = 530;
+    for (let i = 0; i < 3; i++) {
+      ctx.strokeStyle = `rgba(255,128,108,${(1 - ((local * .34 + i / 3) % 1)) * .5})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(pinX, pinY, 46 + ((local * 110 + i * 75) % 250), 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.save();
+    ctx.shadowColor = COLORS.coral; ctx.shadowBlur = 40;
+    ctx.fillStyle = COLORS.coral;
+    ctx.beginPath(); ctx.arc(pinX, pinY, 42 + ping * 5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = COLORS.deep;
+    ctx.beginPath(); ctx.arc(pinX, pinY, 16, 0, Math.PI * 2); ctx.fill();
+    txt('MISIONES', 76, 176, 22, COLORS.coral, { font: 'ui-monospace, monospace', spacing: 5 });
+    txt('La ciudad', 76, 824, 68, COLORS.pale, { weight: 800 });
+    txt('te propone algo.', 76, 905, 62, COLORS.pale, { weight: 800 });
+    const cardY = mix(1110, 1030, ease(local / .7));
+    rr(70, cardY, 940, 412, 28, '#182a33', '#405b62', 2);
+    rr(102, cardY + 32, 180, 42, 18, '#263d41', null);
+    txt('MISION DE EXPLORACION', 192, cardY + 60, 14, COLORS.mint, { align: 'center', font: 'ui-monospace, monospace', spacing: 1 });
+    txt('Descubre un lugar', 108, cardY + 151, 44, COLORS.pale, { weight: 750 });
+    txt('que nunca habías mirado.', 108, cardY + 207, 36, COLORS.pale, { weight: 650 });
+    line([[114, cardY + 271], [968, cardY + 271]], '#37515a', 2);
+    // Three objective dots fill sequentially across the scene.
+    const progress = clamp(local / 4.7);
+    const labels = ['SAL', 'EXPLORA', 'REVELA'];
+    labels.forEach((label, i) => {
+      const x = 174 + i * 330;
+      const on = progress > i / 3;
+      glowDot(x, cardY + 324, 11, on ? COLORS.mint : '#526970', on ? 1 : .5);
+      txt(label, x, cardY + 368, 15, on ? COLORS.pale : COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 1 });
+    });
+    rr(755, 1485, 255, 88, 22, '#15262e', '#315058');
+    txt('+ XP', 882, 1540, 30, COLORS.mint, { align: 'center', weight: 800 });
+    footer(3, 'Convierte la salida en misión', t);
+  }
+
+  function drawGearCard(x, y, w, h, color, label, amount, selected = false) {
+    rr(x, y, w, h, 22, selected ? '#1c3036' : '#162832', selected ? COLORS.mint : '#304a52', selected ? 3 : 2);
+    // Fresh geometric item icons: jacket, shoes and backpack silhouettes.
+    ctx.save(); ctx.translate(x + w / 2, y + 78);
+    ctx.fillStyle = color; ctx.strokeStyle = '#e4f0e888'; ctx.lineWidth = 3;
+    if (label === 'ROPA') {
+      ctx.beginPath(); ctx.moveTo(-30,-28); ctx.lineTo(-58,-12); ctx.lineTo(-42,9); ctx.lineTo(-30,1); ctx.lineTo(-29,38); ctx.lineTo(29,38); ctx.lineTo(30,1); ctx.lineTo(42,9); ctx.lineTo(58,-12); ctx.lineTo(30,-28); ctx.lineTo(12,-19); ctx.lineTo(-12,-19); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (label === 'ZAPATOS') {
+      rr(-42,-18,72,36,13,color,'#e4f0e888',3); rr(-50,12,94,14,7,'#e4f0e8',null);
+    } else {
+      rr(-32,-34,64,76,16,color,'#e4f0e888',3); rr(-20,-46,40,18,8,null,color,4); rr(-19,-3,38,23,7,'#101820','#e4f0e866',2);
+    }
+    ctx.restore();
+    txt(label, x + w / 2, y + 166, 15, COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 2 });
+    txt(amount, x + w / 2, y + h - 24, 17, selected ? COLORS.mint : COLORS.pale, { align: 'center', weight: 700 });
+    if (selected) {
+      ctx.strokeStyle = COLORS.mint; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x + w - 28, y + 28, 10, 0, Math.PI * 2); ctx.stroke();
+      line([[x + w - 33, y + 28], [x + w - 29, y + 32], [x + w - 22, y + 23]], COLORS.mint, 3);
+    }
+  }
+  function drawPlayerLarge(x, y, t, outfit) {
+    const walk = Math.sin(t * 10);
+    ctx.save(); ctx.translate(x, y + Math.abs(walk) * 5);
+    ctx.fillStyle = '#050b0d99'; ctx.beginPath(); ctx.ellipse(0, 10, 70, 17, 0, 0, Math.PI * 2); ctx.fill();
+    // Backpack first, behind the shoulder, with a strap across the jacket.
+    rr(-80, -194, 47, 96, 15, '#985f49', '#513d39', 4);
+    rr(-73, -177, 34, 47, 10, '#b97954', '#65483b', 2);
+    // Alternating legs and visible shoes.
+    const leg = (dx, swing, shade) => {
+      line([[dx, -100], [dx + swing * 14, -58], [dx + swing * 21, -20]], shade, 22);
+      line([[dx + swing * 21, -20], [dx + swing * 21 + 22, -15]], '#dce8e1', 15);
+      line([[dx + swing * 21 - 3, -8], [dx + swing * 21 + 24, -8]], '#80949a', 5);
+    };
+    leg(-28, walk, '#334851'); leg(28, -walk, '#243943');
+    // Oversized hoodie body and swinging arms.
+    rr(-70, -248, 140, 156, 30, outfit, '#72928d', 4);
+    line([[-61, -221], [-84 - walk * 8, -155], [-69 - walk * 9, -119]], '#c9d8d1', 18);
+    line([[61, -221], [84 + walk * 8, -155], [69 + walk * 9, -119]], '#c9d8d1', 18);
+    line([[-70, -242], [0, -193], [56, -238]], '#c49870', 8);
+    rr(-25, -178, 50, 31, 10, '#173039', '#607d7d', 2);
+    // Hood/face and a bright eye highlight.
+    ctx.fillStyle = '#243943'; ctx.beginPath(); ctx.ellipse(0, -291, 61, 67, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#627b7e'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.fillStyle = '#eac39a'; ctx.beginPath(); ctx.ellipse(0, -291, 39, 48, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#22343b'; ctx.fillRect(-24, -307, 12, 5); ctx.fillRect(12, -307, 12, 5);
+    ctx.fillStyle = COLORS.mint; ctx.fillRect(-20, -306, 5, 5); ctx.fillRect(16, -306, 5, 5);
+    ctx.restore();
+  }
+  // Act IV · progression and cosmetics presented as an evolving loadout, not the old wardrobe screen.
+  function actGrowth(t, local) {
+    background(t, COLORS.lavender);
+    txt('TU AVATAR, TU HISTORIA', 74, 164, 23, COLORS.lavender, { font: 'ui-monospace, monospace', spacing: 4 });
+    txt('Cada salida', 74, 267, 63, COLORS.pale, { weight: 750 });
+    txt('te hace crecer.', 74, 342, 63, COLORS.pale, { weight: 750 });
+    const level = Math.min(8, 3 + Math.floor(local * 1.15));
+    rr(80, 403, 920, 90, 20, '#152832', '#354e58', 2);
+    txt('NIVEL', 112, 460, 18, COLORS.muted, { font: 'ui-monospace, monospace', spacing: 2 });
+    txt(String(level), 250, 466, 40, COLORS.mint, { weight: 850 });
+    rr(348, 438, 575, 13, 7, '#31474d', null);
+    rr(348, 438, 575 * ((local * 0.32) % 1), 13, 7, COLORS.mint);
+    txt('+ XP', 933, 460, 17, COLORS.mint, { align: 'right', font: 'ui-monospace, monospace' });
+
+    const outfit = local < 2.4 ? '#28434b' : local < 3.7 ? '#5b4b82' : '#276b68';
+    drawPlayerLarge(540, 1030, local, outfit);
+    txt('EQUÍPATE PARA TU PRÓXIMA RUTA', 540, 1314, 18, COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 2 });
+    const cardY = 1370;
+    drawGearCard(76, cardY, 272, 218, '#315c63', 'ROPA', '01 · CAMBIA EL LOOK', local >= 2.4);
+    drawGearCard(404, cardY, 272, 218, '#c58b62', 'MOCHILA', '02 · LLEVA TU EQUIPO', local >= 1.2 && local < 2.4);
+    drawGearCard(732, cardY, 272, 218, '#71839a', 'ZAPATOS', '03 · SIGUE AVANZANDO', local < 1.2);
+    footer(4, 'Gana experiencia y personaliza', t);
+  }
+
+  function drawPhone(x, y, t) {
+    ctx.save(); ctx.translate(x, y);
+    rr(-220, -360, 440, 720, 48, '#0b1117', '#668087', 5);
+    rr(-198, -336, 396, 672, 34, '#172830', '#2a444b', 2);
+    rr(-48, -322, 96, 14, 7, '#0b1117', null);
+    txt('RUTA URBANA', 0, -282, 16, COLORS.mint, { align: 'center', font: 'ui-monospace, monospace', spacing: 2 });
+    drawMap(-176, -242, 352, 366, t % 5, 1);
+    // mission toast rendered on the screen
+    rr(-166, 137, 332, 94, 16, '#20353e', '#56efc1', 2);
+    glowDot(-137, 184, 8, COLORS.coral, 1);
+    txt('NUEVA RUTA CERCA', -116, 178, 13, COLORS.mint, { font: 'ui-monospace, monospace', spacing: 1 });
+    txt('Explora una calle nueva', -116, 205, 14, COLORS.pale, { weight: 600 });
+    ctx.restore();
+  }
+  // Act V · close with a tangible invitation to install and take the next walk.
+  function actFinal(t, local) {
+    background(t, COLORS.mint);
+    skyline(t, 1610);
+    const lift = 1 - ease(local / .7);
+    txt('NO NECESITAS', 540, 230 + lift * 30, 27, COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 5, alpha: 1 - lift });
+    txt('IR LEJOS.', 540, 344 + lift * 42, 84, COLORS.pale, { align: 'center', weight: 850, alpha: 1 - lift });
+    txt('SOLO MIRAR', 540, 440 + lift * 55, 74, COLORS.pale, { align: 'center', weight: 850, alpha: 1 - lift });
+    txt('DE NUEVO.', 540, 530 + lift * 68, 83, COLORS.mint, { align: 'center', weight: 850, glow: 22, alpha: 1 - lift });
+    drawPhone(540, 1010 + Math.sin(t * 1.2) * 8, local);
+    rr(108, 1480, 864, 182, 28, '#14252d', '#39545a', 2);
+    txt('RUTA URBANA', 540, 1542, 22, COLORS.muted, { align: 'center', font: 'ui-monospace, monospace', spacing: 5 });
+    txt('AÑÁDELA A TU INICIO', 540, 1604, 39, COLORS.mint, { align: 'center', weight: 850, glow: 14 });
+    txt('TU PRÓXIMA AVENTURA EMPIEZA AL SALIR', 540, 1688, 18, COLORS.pale, { align: 'center', font: 'ui-monospace, monospace', spacing: 1 });
+    footer(5, 'Tu ciudad te espera', t);
+  }
+
+  const scenes = [
+    { start: 0, end: 4, label: 'Hook', caption: 'TU BARRIO, EN CLAVE DE AVENTURA', draw: actHook },
+    { start: 4, end: 9, label: 'Explora', caption: 'LA CIUDAD SE REVELA AL CAMINAR', draw: actMap },
+    { start: 9, end: 14, label: 'Misiones', caption: 'CONVIERTE EL PASEO EN MISIÓN', draw: actQuest },
+    { start: 14, end: 19, label: 'Progreso', caption: 'GANA EXPERIENCIA, ARMA TU AVATAR', draw: actGrowth },
+    { start: 19, end: 24, label: 'Instala', caption: 'TU PRÓXIMA AVENTURA EMPIEZA AL SALIR', draw: actFinal },
+  ];
+  function render(seconds) {
+    const t = clamp(seconds, 0, DURATION);
+    const scene = scenes.find((s) => t >= s.start && t < s.end) || scenes[scenes.length - 1];
+    const local = t - scene.start;
+    captionEl.textContent = `${String(scenes.indexOf(scene) + 1).padStart(2, '0')} · ${scene.caption}`;
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.globalAlpha = ease(local / .22);
+    scene.draw(t, local);
+    ctx.restore();
+    // Two slender illuminated edge guides tie the distinct scenes together.
+    ctx.save(); ctx.globalAlpha = .3 + pulse(t, .3) * .12;
+    ctx.fillStyle = COLORS.mint; ctx.fillRect(30, 0, 2, H); ctx.fillRect(W - 32, 0, 2, H);
+    ctx.restore();
+  }
+
+  // Original 24-second downtempo score: F# minor, 80 BPM, 8 bars.
+  // Sine bass + filtered chord bed + triangle pluck + soft noise percussion.
+  const BPM = 80;
+  const BEAT = 60 / BPM;
+  const BAR = BEAT * 4;
+  const SAMPLE_RATE = 44100;
+  const progression = [
+    { root: 54, third: 3 }, { root: 50, third: 4 },
+    { root: 57, third: 4 }, { root: 52, third: 4 },
+    { root: 59, third: 3 }, { root: 50, third: 4 },
+    { root: 52, third: 4 }, { root: 54, third: 3 },
+  ];
+  const lead = [
+    [0, 3, 7, null, 5, 3, 2, null],
+    [7, null, 5, 3, 2, 0, null, 3],
+    [4, 7, null, 10, 7, 5, 3, null],
+    [5, 3, 2, null, 0, 2, 3, 7],
+    [0, null, 3, 5, 7, null, 5, 3],
+    [7, 5, 3, null, 2, 3, 5, null],
+    [4, null, 7, 10, 7, 5, 3, 2],
+    [0, 3, 5, null, 7, 5, 3, 0],
+  ];
+  // Incluye grado 10 (B sobre la octava), usado por el motivo de los compases 3 y 6.
+  const minorScale = [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17];
+  const audio = { ctx: null, master: null, dest: null, source: null, buffer: null, on: true, recorder: null, stream: null, recording: false, previewing: false, startedAt: 0, raf: 0 };
+
+  const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  function envGain(gain, time, duration, peak, attack = .018) {
+    gain.gain.setValueAtTime(.0001, time);
+    gain.gain.linearRampToValueAtTime(peak, time + attack);
+    gain.gain.exponentialRampToValueAtTime(.0001, time + Math.max(attack + .02, duration));
+  }
+  function synthNote(ac, destination, type, midi, time, duration, volume, cutoff = 0) {
+    const end = Math.min(DURATION - .005, time + duration);
+    if (end <= time + .03) return;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(midiHz(midi), time);
+    if (cutoff) {
+      const filter = ac.createBiquadFilter(); filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(cutoff, time); filter.Q.value = .6;
+      osc.connect(filter).connect(gain).connect(destination);
+    } else osc.connect(gain).connect(destination);
+    envGain(gain, time, end - time, volume, type === 'sawtooth' ? .08 : .015);
+    osc.start(time); osc.stop(end + .006);
+  }
+  function kick(ac, destination, time, volume = .14) {
+    const osc = ac.createOscillator(); const gain = ac.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(118, time); osc.frequency.exponentialRampToValueAtTime(43, time + .19);
+    gain.gain.setValueAtTime(volume, time); gain.gain.exponentialRampToValueAtTime(.0001, time + .22);
+    osc.connect(gain).connect(destination); osc.start(time); osc.stop(time + .23);
+  }
+  function noiseHit(ac, destination, noise, time, duration, volume, cutoff, type = 'highpass') {
+    const src = ac.createBufferSource(); src.buffer = noise;
+    const filter = ac.createBiquadFilter(); filter.type = type; filter.frequency.value = cutoff;
+    const gain = ac.createGain(); envGain(gain, time, duration, volume, .004);
+    src.connect(filter).connect(gain).connect(destination); src.start(time); src.stop(time + duration + .01);
+  }
+  async function buildSong() {
+    if (audio.buffer) return audio.buffer;
+    const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Offline) throw new Error('Este navegador no permite sintetizar el audio. Usa Chrome o Edge.');
+    const offline = new Offline(2, SAMPLE_RATE * DURATION, SAMPLE_RATE);
+    const master = offline.createGain(); master.gain.value = .62; master.connect(offline.destination);
+    const noise = offline.createBuffer(1, Math.ceil(SAMPLE_RATE * .5), SAMPLE_RATE);
+    const noiseData = noise.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+
+    progression.forEach((ch, bar) => {
+      const t = bar * BAR;
+      const chord = [ch.root, ch.root + ch.third, ch.root + 7];
+      // Warm sustained harmony; opens up in the middle, then resolves to F# minor.
+      chord.forEach((m, i) => synthNote(offline, master, 'sawtooth', m + 12, t, BAR - .08, .018 + (i === 0 ? .009 : 0), 760 + i * 150));
+      // Round sine bass, gently syncopated rather than the first track's arcade pulse.
+      [0, 1.5, 2.5].forEach((beat, i) => synthNote(offline, master, 'sine', ch.root - 12 + (i === 2 ? 7 : 0), t + beat * BEAT, .52, .105, 180));
+      // Sparse triangle melody, with gaps and long tails for a night-walk feel.
+      lead[bar].forEach((degree, i) => {
+        if (degree === null) return;
+        const note = ch.root + 12 + minorScale[degree];
+        const at = t + i * (BEAT / 2);
+        synthNote(offline, master, 'triangle', note, at, i % 3 === 0 ? .31 : .22, bar < 2 ? .032 : .046, 0);
+        if (i === 0 || i === 4) synthNote(offline, master, 'sine', note + 12, at + .025, .17, .012, 0);
+      });
+      if (bar >= 1 && bar <= 6) {
+        // Soft kick/snare and brushed hats enter after the opening bars.
+        kick(offline, master, t, .11);
+        kick(offline, master, t + 2 * BEAT, .08);
+        noiseHit(offline, master, noise, t + BEAT, .14, .044, 950, 'bandpass');
+        noiseHit(offline, master, noise, t + 3 * BEAT, .14, .05, 1150, 'bandpass');
+        for (let eighth = 0; eighth < 8; eighth++) {
+          if (eighth % 2 === 1) noiseHit(offline, master, noise, t + eighth * BEAT / 2, .035, .009 + (eighth === 7 ? .008 : 0), 6800);
+        }
+      }
+      if (bar === 7) {
+        // Final chord sustains exactly to the 24-second end card.
+        [ch.root, ch.root + 3, ch.root + 7, ch.root + 12].forEach((m, i) => synthNote(offline, master, i === 3 ? 'triangle' : 'sawtooth', m + 12, t, BAR - .025, i === 3 ? .026 : .019, 820 + i * 100));
+      }
+    });
+    audio.buffer = await offline.startRendering();
+    return audio.buffer;
+  }
+  function ensureLiveAudio() {
+    if (audio.ctx) return audio.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error('Web Audio no está disponible en este navegador.');
+    audio.ctx = new AC();
+    audio.master = audio.ctx.createGain();
+    audio.master.gain.value = audio.on ? .72 : 0;
+    audio.master.connect(audio.ctx.destination);
+    audio.dest = audio.ctx.createMediaStreamDestination();
+    audio.master.connect(audio.dest);
+    return audio.ctx;
+  }
+  function stopSource() {
+    if (!audio.source) return;
+    audio.source.onended = null;
+    try { audio.source.stop(); } catch { /* ya había terminado */ }
+    audio.source.disconnect(); audio.source = null;
+  }
+  function download(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }
+  function wavBlob(buffer) {
+    const channels = buffer.numberOfChannels;
+    const samples = buffer.length;
+    const bytes = 44 + samples * channels * 2;
+    const view = new DataView(new ArrayBuffer(bytes));
+    const put = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)); };
+    put(0, 'RIFF'); view.setUint32(4, bytes - 8, true); put(8, 'WAVE'); put(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true);
+    view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * channels * 2, true);
+    view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true); put(36, 'data'); view.setUint32(40, samples * channels * 2, true);
+    const data = Array.from({ length: channels }, (_, c) => buffer.getChannelData(c));
+    let offset = 44;
+    for (let i = 0; i < samples; i++) for (let c = 0; c < channels; c++) {
+      const value = clamp(data[c][i], -1, 1);
+      view.setInt16(offset, value < 0 ? value * 32768 : value * 32767, true); offset += 2;
+    }
+    return new Blob([view.buffer], { type: 'audio/wav' });
+  }
+
+  function runAnimation() {
+    cancelAnimationFrame(audio.raf);
+    const tick = (now) => {
+      if (audio.recording) {
+        const elapsed = (now - audio.startedAt) / 1000;
+        render(Math.min(DURATION, elapsed));
+        if (elapsed >= DURATION) { stopRecording(); return; }
+      } else if (audio.previewing) {
+        render(((now - audio.startedAt) / 1000) % DURATION);
+      }
+      if (audio.recording || audio.previewing) audio.raf = requestAnimationFrame(tick);
+    };
+    audio.raf = requestAnimationFrame(tick);
+  }
+  function setStatus(message, type = '') { statusEl.textContent = message; statusEl.className = `status ${type}`; }
+
+  async function preview() {
+    if (audio.recording) return;
+    try {
+      const buffer = await buildSong();
+      const ac = ensureLiveAudio();
+      if (ac.state === 'suspended') await ac.resume();
+      stopSource();
+      const source = ac.createBufferSource(); source.buffer = buffer; source.loop = true;
+      source.connect(audio.master); source.start(); audio.source = source;
+      audio.previewing = true; audio.startedAt = performance.now();
+      playBtn.textContent = '■ DETENER';
+      setStatus('Reproduciendo el tema original · 80 BPM · 24 s.', 'ok');
+      runAnimation();
+    } catch (e) { setStatus(e.message, 'err'); }
+  }
+  function stopPreview() {
+    audio.previewing = false; stopSource(); cancelAnimationFrame(audio.raf);
+    playBtn.textContent = '▶ PREVISUALIZAR'; render(1.2);
+    setStatus('Previsualización detenida.');
+  }
+  function mimeType() {
+    if (!window.MediaRecorder) return '';
+    return ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+      .find((type) => MediaRecorder.isTypeSupported(type)) || '';
+  }
+  async function record() {
+    if (audio.recording) return;
+    const mime = mimeType();
+    if (!mime) { setStatus('Este navegador no graba WebM. Usa Chrome o Edge.', 'err'); return; }
+    try {
+      recordBtn.disabled = true;
+      setStatus('Preparando animación y banda sonora de 24 segundos…');
+      const buffer = await buildSong();
+      const ac = ensureLiveAudio();
+      if (ac.state === 'suspended') await ac.resume();
+      audio.previewing = false; stopSource(); cancelAnimationFrame(audio.raf);
+      const videoStream = canvas.captureStream(30);
+      const stream = new MediaStream([...videoStream.getVideoTracks(), ...audio.dest.stream.getAudioTracks()]);
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+      audio.recorder = recorder; audio.stream = stream; audio.recording = true;
+      const chunks = [];
+      recorder.ondataavailable = (event) => { if (event.data?.size) chunks.push(event.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mime });
+        download(blob, 'ruta-urbana-promo-2.webm');
+        videoStream.getTracks().forEach((track) => track.stop());
+        audio.recording = false; audio.recorder = null; audio.stream = null;
+        recordBtn.disabled = false; recordBtn.textContent = '● GRABAR 24 S';
+        playBtn.textContent = '▶ PREVISUALIZAR';
+        setStatus(`Video terminado (${(blob.size / 1048576).toFixed(1)} MB).`, 'ok');
+        render(DURATION);
+      };
+      recorder.start(250);
+      const source = ac.createBufferSource(); source.buffer = buffer; source.connect(audio.master);
+      audio.source = source; audio.startedAt = performance.now(); source.start();
+      source.onended = () => { if (audio.recording) stopRecording(); };
+      recordBtn.textContent = '● GRABANDO…';
+      setStatus('Grabando 24 segundos exactos de historia y música. Mantén esta pestaña abierta.', 'ok');
+      runAnimation();
+    } catch (e) {
+      audio.recording = false; recordBtn.disabled = false; recordBtn.textContent = '● GRABAR 24 S';
+      setStatus(e.message, 'err');
+    }
+  }
+  function stopRecording() {
+    if (!audio.recording) return;
+    audio.recording = false;
+    cancelAnimationFrame(audio.raf);
+    stopSource();
+    if (audio.recorder && audio.recorder.state !== 'inactive') audio.recorder.stop();
+  }
+  async function exportWav() {
+    wavBtn.disabled = true;
+    try {
+      const buffer = await buildSong();
+      download(wavBlob(buffer), 'ruta-urbana-tema-2.wav');
+      setStatus('WAV original exportado · 24 s · F# menor · 80 BPM.', 'ok');
+    } catch (e) { setStatus(e.message, 'err'); }
+    wavBtn.disabled = false;
+  }
+
+  playBtn.addEventListener('click', () => audio.previewing ? stopPreview() : preview());
+  recordBtn.addEventListener('click', record);
+  musicBtn.addEventListener('click', () => {
+    audio.on = !audio.on;
+    if (audio.master && audio.ctx) audio.master.gain.setTargetAtTime(audio.on ? .72 : 0, audio.ctx.currentTime, .03);
+    musicBtn.textContent = audio.on ? '♪ MÚSICA: ON' : '♪ MÚSICA: OFF';
+    setStatus(audio.on ? 'Música activada.' : 'Música silenciada (la grabación saldrá sin audio).');
+  });
+  wavBtn.addEventListener('click', exportWav);
+  render(1.2);
+})();
+</script>
+</body>
+</html>
