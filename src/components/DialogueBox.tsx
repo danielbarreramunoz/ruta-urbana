@@ -5,7 +5,7 @@ import { usePlayerStore, useSettingsStore } from '../game/store';
 import type { DialogueNode } from '../game/types';
 import { Sprite, retratoSvg } from './sprites';
 
-/** Caja de diálogo estilo RPG con retrato pixel-art definitivo. */
+/** Caja de diálogo estilo RPG 16-bit: retrato enmarcado, guion y opciones numeradas. */
 export default function DialogueBox({
   nodoInicial,
   onTerminar,
@@ -31,25 +31,50 @@ export default function DialogueBox({
   };
 
   return (
-    <div className="border-2 border-ruta-gold bg-ruta-panel p-4">
-      <div className="flex items-center">
-        <Sprite svg={retratoSvg(nodo.npcId)} size={56} titulo={nodo.npcNombre} />
-        <div className="ml-3 flex-1">
-          <div className="font-pixel text-sm font-bold text-ruta-parchment">{nodo.npcNombre}</div>
-          {nodo.esRescate && <div className="font-pixel text-[11px] text-ruta-valentia">⚠ IMPREVISTO EXTERNO</div>}
+    <div className="px-frame px-frame--gold p-3">
+      {/* Cabecera: retrato + placa de nombre */}
+      <div className="flex items-end gap-2.5">
+        <div className="relative flex-none">
+          <Sprite svg={retratoSvg(nodo.npcId)} size={64} titulo={nodo.npcNombre} />
+          <span className="absolute -bottom-1 -right-1 border border-ruta-void bg-ruta-gold px-1 font-pixel text-[8px] font-bold text-ruta-ink">
+            NPC
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="border-2 border-ruta-line bg-ruta-void px-2 py-1">
+            <span className="font-pixel text-sm font-bold tracking-wide text-ruta-parchment">{nodo.npcNombre}</span>
+          </div>
+          {nodo.esRescate ? (
+            <div className="mt-1 inline-block border border-ruta-valentia px-1.5 py-0.5 font-pixel text-[9px] tracking-widest text-ruta-valentia">
+              ⚠ IMPREVISTO EXTERNO
+            </div>
+          ) : (
+            <div className="mt-1 font-pixel text-[9px] tracking-widest text-ruta-muted">DIÁLOGO</div>
+          )}
         </div>
       </div>
-      <div className="mt-3 border border-ruta-line bg-ruta-void p-3">
-        <p className="font-pixel text-sm leading-6 text-ruta-parchment">“{nodo.texto}”</p>
+
+      {/* Guion */}
+      <div className="relative mt-2.5 border-2 border-ruta-line bg-ruta-void p-3">
+        <span className="absolute -top-2 left-2 bg-ruta-void px-1 font-pixel text-[9px] text-ruta-gold">▸ GUION</span>
+        <p className="font-pixel text-[13px] leading-6 text-ruta-parchment">{nodo.texto}</p>
       </div>
-      <div className="mt-3 space-y-2">
-        {nodo.opciones.map((o) => (
+
+      {/* Opciones */}
+      <div className="mt-2.5 space-y-1.5">
+        {nodo.opciones.map((o, i) => (
           <button
             key={o.id}
             onClick={() => elegir(o.id)}
-            className="w-full border border-ruta-line bg-ruta-void p-3 text-left font-pixel text-[13px] leading-5 text-ruta-parchment active:border-ruta-gold"
+            className="px-btn flex w-full items-start gap-2 p-2.5 text-left"
           >
-            {o.texto}
+            <span className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center border border-ruta-line bg-ruta-void font-pixel text-[9px] text-ruta-gold">
+              {i + 1}
+            </span>
+            <span className="flex-1 font-pixel text-[12px] leading-5 text-ruta-parchment">{o.texto}</span>
+            {o.efecto?.xp ? (
+              <span className="mt-0.5 flex-none font-pixel text-[9px] text-ruta-xp">+{o.efecto.xp}XP</span>
+            ) : null}
           </button>
         ))}
       </div>

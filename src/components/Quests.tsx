@@ -6,30 +6,30 @@ import { publicarMision } from '../game/backend';
 import { generarMisionSecundaria, type BriefMision } from '../game/generador';
 import { sonar } from '../game/audio';
 import { usePlayerPosition } from '../game/geo';
-import { buscarDialogo, buscarQuest, usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
+import { buscarDialogo, buscarQuest, PROGRESO_VACIO, usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
 import type { QuestCategory, QuestStep } from '../game/types';
 
-const CATEGORIA: Record<string, string> = {
-  tramite: '📋 TRÁMITE',
-  salud: '💊 SALUD',
-  trabajo: '💼 TRABAJO',
-  hogar: '🏠 HOGAR',
-  secundaria: '⭐ SECUNDARIA',
+const CATEGORIA: Record<string, { icono: string; label: string }> = {
+  tramite: { icono: '📋', label: 'TRÁMITE' },
+  salud: { icono: '💊', label: 'SALUD' },
+  trabajo: { icono: '💼', label: 'TRABAJO' },
+  hogar: { icono: '🏠', label: 'HOGAR' },
+  secundaria: { icono: '⭐', label: 'SECUNDARIA' },
 };
 
-const ESTADO_COLOR: Record<string, string> = {
-  disponible: 'text-ruta-muted',
-  activa: 'text-ruta-xp',
-  completada: 'text-ruta-gold',
-  fallida: 'text-ruta-valentia',
-  reprogramada: 'text-ruta-burocracia',
+const ESTADO: Record<string, { label: string; color: string; borde: string }> = {
+  disponible: { label: 'DISPONIBLE', color: 'text-ruta-muted', borde: 'border-ruta-line' },
+  activa: { label: '▶ ACTIVA', color: 'text-ruta-gold', borde: 'border-ruta-gold' },
+  completada: { label: '✓ COMPLETADA', color: 'text-ruta-xp', borde: 'border-ruta-xp' },
+  fallida: { label: '✗ FALLIDA', color: 'text-ruta-valentia', borde: 'border-ruta-valentia' },
+  reprogramada: { label: '↻ REPROGRAMADA', color: 'text-ruta-burocracia', borde: 'border-ruta-burocracia' },
 };
 
 const TIPO_ICONO: Record<QuestStep['tipo'], string> = {
   preparacion: '🎒',
   ir: '📍',
   dialogo: '💬',
-  accion: '✅',
+  accion: '✓',
   rescate: '🆘',
 };
 
@@ -59,65 +59,132 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
     onAbrir(quest.id);
   };
 
+  const hechas = todas.filter((q) => progresos[q.id]?.estado === 'completada').length;
+
   return (
     <div className="space-y-3">
-      <div className="font-pixel text-xs tracking-widest text-ruta-muted">RUTA URBANA · MISIONES</div>
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="font-pixel text-[10px] tracking-[0.2em] text-ruta-muted">RUTA URBANA</div>
+          <h1 className="font-pixel text-xl font-bold text-ruta-parchment">MISIONES</h1>
+        </div>
+        <div className="border border-ruta-line bg-ruta-panel px-2 py-1 font-pixel text-[10px] text-ruta-gold">
+          {hechas}/{todas.length} ✓
+        </div>
+      </div>
+
       <Hud />
-      <button onClick={() => setCreando((v) => !v)} className="w-full border-2 border-dashed border-ruta-burocracia bg-ruta-panel p-3 font-pixel text-xs font-bold text-ruta-burocracia">
-        {creando ? '✕ CERRAR GENERADOR' : '+ CREAR MISIÓN SECUNDARIA (aquí)'}
+
+      <button
+        onClick={() => setCreando((v) => !v)}
+        className={`px-btn w-full py-2.5 font-pixel text-[11px] font-bold ${creando ? 'px-btn--on' : 'text-ruta-burocracia'}`}
+        style={{ borderColor: creando ? undefined : '#3D6FC4' }}
+      >
+        {creando ? '✕ CERRAR GENERADOR' : '+ CREAR MISIÓN SECUNDARIA'}
       </button>
+
       {creando && (
-        <div className="border-2 border-ruta-burocracia bg-ruta-panel p-4">
-          <div className="font-pixel text-xs text-ruta-muted">Se crea en tu posición actual · validada como el catálogo oficial</div>
-          <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ej. Pagar la luz)" className="mt-2 w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-sm text-ruta-parchment placeholder:text-ruta-muted" />
-          <input value={lugar} onChange={(e) => setLugar(e.target.value)} placeholder="Lugar (ej. Caja vecina)" className="mt-2 w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-sm text-ruta-parchment placeholder:text-ruta-muted" />
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value as QuestCategory)} className="mt-2 w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-sm text-ruta-parchment">
+        <div className="px-frame space-y-2 p-3">
+          <div className="font-pixel text-[10px] leading-4 text-ruta-muted">
+            Se ancla en tu posición actual y se valida igual que el catálogo oficial.
+          </div>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Título (ej. Pagar la luz)"
+            className="w-full border-2 border-ruta-line bg-ruta-void p-2 font-pixel text-sm text-ruta-parchment placeholder:text-ruta-muted focus:border-ruta-burocracia focus:outline-none"
+          />
+          <input
+            value={lugar}
+            onChange={(e) => setLugar(e.target.value)}
+            placeholder="Lugar (ej. Caja vecina)"
+            className="w-full border-2 border-ruta-line bg-ruta-void p-2 font-pixel text-sm text-ruta-parchment placeholder:text-ruta-muted focus:border-ruta-burocracia focus:outline-none"
+          />
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value as QuestCategory)}
+            className="w-full border-2 border-ruta-line bg-ruta-void p-2 font-pixel text-sm text-ruta-parchment focus:outline-none"
+          >
             <option value="secundaria">⭐ Secundaria</option>
             <option value="tramite">📋 Trámite</option>
             <option value="salud">💊 Salud</option>
             <option value="trabajo">💼 Trabajo</option>
             <option value="hogar">🏠 Hogar</option>
           </select>
-          <button onClick={crear} disabled={titulo.trim().length < 4 || lugar.trim().length < 3} className="mt-2 w-full border border-ruta-xp bg-ruta-void p-3 font-pixel text-sm font-bold text-ruta-xp disabled:opacity-50">
+          <button
+            onClick={crear}
+            disabled={titulo.trim().length < 4 || lugar.trim().length < 3}
+            className="px-btn px-btn--xp w-full py-2.5 font-pixel text-xs font-bold disabled:opacity-40"
+          >
             GENERAR MISIÓN
           </button>
         </div>
       )}
+
       {todas.map((q) => {
         const prog = progresos[q.id];
         const estado = prog?.estado ?? q.estado;
+        const meta = ESTADO[estado];
         const hecha = estado === 'completada';
         const pasosHechos = prog?.pasosCompletados.length ?? 0;
+        const pct = Math.round((pasosHechos / q.pasos.length) * 100);
         const esActiva = misionActivaId === q.id;
+        const cat = CATEGORIA[q.categoria];
         return (
-          <div key={q.id} className={`border-2 bg-ruta-panel p-4 ${esActiva ? 'border-ruta-gold' : 'border-ruta-line'}`}>
-            <div className="flex items-center justify-between">
-              <span className="font-pixel text-[11px] text-ruta-muted">{CATEGORIA[q.categoria]}</span>
-              <span className={`font-pixel text-[11px] font-bold ${ESTADO_COLOR[estado]}`}>{estado.toUpperCase()}</span>
-            </div>
-            <button onClick={() => onAbrir(q.id)} className="mt-1 block text-left font-pixel text-lg font-bold text-ruta-parchment">
-              {q.titulo}
-            </button>
-            <p className="mt-1 font-pixel text-xs leading-5 text-ruta-muted">{q.descripcion}</p>
-            <div className="mt-2 font-pixel text-xs text-ruta-muted">
-              {pasosHechos}/{q.pasos.length} pasos · +{q.recompensa.xp} XP · Nv. {q.nivelMinimo}+
-            </div>
-            {!hecha && !esActiva && (
-              <button
-                onClick={() => { sonar('blip', sonido); activar(q.id); onAbrir(q.id); }}
-                className="mt-3 w-full border border-ruta-xp bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-xp"
-              >
-                {estado === 'reprogramada' ? '↻ REINTENTAR MISIÓN' : '▶ ACTIVAR MISIÓN'}
+          <div key={q.id} className={`px-frame ${esActiva ? 'px-frame--gold' : ''}`}>
+            <div className={`h-1 w-full ${esActiva ? 'bg-ruta-gold' : hecha ? 'bg-ruta-xp' : 'bg-ruta-line'}`} />
+            <div className="p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-pixel text-[9px] tracking-widest text-ruta-muted">
+                  {cat.icono} {cat.label}
+                </span>
+                <span className={`font-pixel text-[9px] font-bold ${meta.color}`}>{meta.label}</span>
+              </div>
+
+              <button onClick={() => onAbrir(q.id)} className="mt-1 block w-full text-left">
+                <span className="font-pixel text-[15px] font-bold leading-5 text-ruta-parchment">{q.titulo}</span>
               </button>
-            )}
-            {!hecha && esActiva && (
-              <button
-                onClick={() => onAbrir(q.id)}
-                className="mt-3 w-full border border-ruta-gold bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-gold"
-              >
-                CONTINUAR →
-              </button>
-            )}
+              <p className="mt-1 line-clamp-2 font-pixel text-[11px] leading-4 text-ruta-muted">{q.descripcion}</p>
+
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex flex-1 gap-[2px]">
+                  {q.pasos.map((p) => (
+                    <span
+                      key={p.id}
+                      className={`h-1.5 flex-1 ${prog?.pasosCompletados.includes(p.id) ? 'bg-ruta-xp' : 'bg-ruta-line'}`}
+                    />
+                  ))}
+                </div>
+                <span className="flex-none font-pixel text-[9px] text-ruta-muted">{pct}%</span>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
+                <span className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">+{q.recompensa.xp} XP</span>
+                {q.recompensa.atributos &&
+                  Object.entries(q.recompensa.atributos).map(([k, v]) => (
+                    <span key={k} className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
+                      +{v} {k.slice(0, 3).toUpperCase()}
+                    </span>
+                  ))}
+                <span className="ml-auto font-pixel text-[9px] text-ruta-muted">
+                  {pasosHechos}/{q.pasos.length} pasos
+                </span>
+              </div>
+
+              {!hecha && !esActiva && (
+                <button
+                  onClick={() => { sonar('blip', sonido); activar(q.id); onAbrir(q.id); }}
+                  className="px-btn px-btn--xp mt-2.5 w-full py-2 font-pixel text-[11px] font-bold"
+                >
+                  {estado === 'reprogramada' ? '↻ REINTENTAR MISIÓN' : '▶ ACTIVAR MISIÓN'}
+                </button>
+              )}
+              {!hecha && esActiva && (
+                <button onClick={() => onAbrir(q.id)} className="px-btn px-btn--on mt-2.5 w-full py-2 font-pixel text-[11px] font-bold">
+                  CONTINUAR →
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -127,7 +194,8 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
 
 export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: () => void }) {
   const quest = buscarQuest(questId);
-  const progreso = useQuestStore((s) => s.progresoDe(questId));
+  const progresos = useQuestStore((s) => s.progresos);
+  const progreso = progresos[questId] ?? PROGRESO_VACIO;
   const activar = useQuestStore((s) => s.activar);
   const toggleCheck = useQuestStore((s) => s.toggleCheck);
   const completarPaso = useQuestStore((s) => s.completarPaso);
@@ -154,35 +222,73 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const hecha = progreso.estado === 'completada';
   const ordenActual = quest.pasos.find((p) => !progreso.pasosCompletados.includes(p.id))?.orden;
   const todosPasos = quest.pasos.every((p) => progreso.pasosCompletados.includes(p.id));
+  const cat = CATEGORIA[quest.categoria];
+  const checksListos = (quest.requisitos.items ?? []).every((i) => progreso.checks[i]);
 
   return (
     <div className="space-y-3">
-      <button onClick={onVolver} className="font-pixel text-xs text-ruta-muted">← MISIONES</button>
+      <button onClick={onVolver} className="px-btn px-2.5 py-1 font-pixel text-[10px] text-ruta-muted">
+        ← MISIONES
+      </button>
+
       <Hud />
-      <div className="border-2 border-ruta-line bg-ruta-panel p-4">
-        <div className="font-pixel text-[11px] text-ruta-muted">{quest.categoria.toUpperCase()} · {progreso.estado.toUpperCase()}</div>
-        <h1 className="mt-1 font-pixel text-2xl font-bold text-ruta-parchment">{quest.titulo}</h1>
-        <p className="mt-1 font-pixel text-sm leading-6 text-ruta-muted">{quest.descripcion}</p>
-        <div className="mt-2 font-pixel text-xs text-ruta-gold">
-          Recompensa: +{quest.recompensa.xp} XP
-          {quest.recompensa.atributos ? ` (${Object.entries(quest.recompensa.atributos).map(([k, v]) => `+${v} ${k.slice(0, 3).toUpperCase()}`).join(', ')})` : ''}
+
+      {/* Cabecera de misión */}
+      <div className={`px-frame ${esActiva ? 'px-frame--gold' : ''}`}>
+        <div className={`h-1 w-full ${esActiva ? 'bg-ruta-gold' : hecha ? 'bg-ruta-xp' : 'bg-ruta-line'}`} />
+        <div className="p-3">
+          <div className="flex items-center justify-between">
+            <span className="font-pixel text-[9px] tracking-widest text-ruta-muted">
+              {cat.icono} {cat.label}
+            </span>
+            <span className={`font-pixel text-[9px] font-bold ${ESTADO[progreso.estado].color}`}>
+              {ESTADO[progreso.estado].label}
+            </span>
+          </div>
+          <h1 className="mt-1 font-pixel text-xl font-bold leading-6 text-ruta-parchment">{quest.titulo}</h1>
+          <p className="mt-1 font-pixel text-[12px] leading-5 text-ruta-muted">{quest.descripcion}</p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="border border-ruta-gold px-1.5 py-0.5 font-pixel text-[9px] text-ruta-gold">
+              +{quest.recompensa.xp} XP
+            </span>
+            {quest.recompensa.atributos &&
+              Object.entries(quest.recompensa.atributos).map(([k, v]) => (
+                <span key={k} className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-parchment">
+                  +{v} {k.slice(0, 3).toUpperCase()}
+                </span>
+              ))}
+            <span className="border border-ruta-line px-1.5 py-0.5 font-pixel text-[9px] text-ruta-muted">
+              Nv. {quest.nivelMinimo}+
+            </span>
+          </div>
+
+          {!esActiva && !hecha && (
+            <button
+              onClick={() => { sonar('blip', sonido); activar(quest.id); }}
+              className="px-btn px-btn--xp mt-2.5 w-full py-2.5 font-pixel text-xs font-bold"
+            >
+              {progreso.estado === 'reprogramada' ? '↻ REINTENTAR' : '▶ ACTIVAR MISIÓN'}
+            </button>
+          )}
+          {esCustom && (
+            <button onClick={publicar} className="px-btn mt-2 w-full py-2 font-pixel text-[10px] text-ruta-burocracia">
+              ⬆ COMPARTIR AL CATÁLOGO
+            </button>
+          )}
+          {pubMsg && <div className="mt-2 font-pixel text-[10px] text-ruta-muted">{pubMsg}</div>}
         </div>
-        {!esActiva && !hecha && (
-          <button onClick={() => { sonar('blip', sonido); activar(quest.id); }} className="mt-3 w-full border border-ruta-xp bg-ruta-void p-3 font-pixel text-sm font-bold text-ruta-xp">
-            {progreso.estado === 'reprogramada' ? '↻ REINTENTAR' : '▶ ACTIVAR MISIÓN'}
-          </button>
-        )}
-        {esCustom && (
-          <button onClick={publicar} className="mt-2 w-full border border-ruta-burocracia bg-ruta-void p-2.5 font-pixel text-xs text-ruta-burocracia">
-            ⬆ COMPARTIR AL CATÁLOGO COMUNITARIO
-          </button>
-        )}
-        {pubMsg && <div className="mt-2 font-pixel text-[11px] text-ruta-muted">{pubMsg}</div>}
       </div>
 
-      <div className="border-2 border-ruta-line bg-ruta-panel p-4">
-        <div className="font-pixel text-sm font-bold text-ruta-parchment">🎒 Inventario previo</div>
-        <p className="mt-1 font-pixel text-[11px] leading-4 text-ruta-muted">No salgas sin marcar todo. En la calle ya no hay vuelta atrás.</p>
+      {/* Checklist previo */}
+      <div className="px-frame p-3">
+        <div className="flex items-center justify-between">
+          <span className="font-pixel text-sm font-bold text-ruta-parchment">🎒 Inventario previo</span>
+          <span className={`font-pixel text-[9px] ${checksListos ? 'text-ruta-xp' : 'text-ruta-muted'}`}>
+            {checksListos ? 'LISTO' : 'PENDIENTE'}
+          </span>
+        </div>
+        <p className="mt-1 font-pixel text-[10px] leading-4 text-ruta-muted">Márcalo antes de salir. En la calle no hay vuelta atrás.</p>
         {(quest.requisitos.items ?? []).map((itemId) => {
           const item = itemById.get(itemId);
           const marcado = !!progreso.checks[itemId];
@@ -190,74 +296,112 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
             <button
               key={itemId}
               onClick={() => { sonar('blip', sonido); toggleCheck(quest.id, itemId); }}
-              className={`mt-2 flex w-full items-center border p-3 text-left ${marcado ? 'border-ruta-xp bg-ruta-void' : 'border-ruta-line'}`}
+              className={`px-btn mt-2 flex w-full items-center gap-2.5 p-2.5 text-left ${marcado ? 'px-btn--xp border-ruta-xp' : ''}`}
             >
-              <span className={`mr-3 flex h-5 w-5 items-center justify-center border ${marcado ? 'border-ruta-xp bg-ruta-xp' : 'border-ruta-muted'}`}>
-                {marcado && <span className="font-pixel text-xs font-bold text-ruta-ink">✓</span>}
+              <span className={`flex h-5 w-5 flex-none items-center justify-center border-2 ${marcado ? 'border-ruta-xp bg-ruta-xp' : 'border-ruta-muted bg-[#08080e]'}`}>
+                {marcado && <span className="font-pixel text-[11px] font-bold text-ruta-ink">✓</span>}
               </span>
-              <span className="flex-1">
-                <span className={`block font-pixel text-[13px] font-bold ${marcado ? 'text-ruta-xp' : 'text-ruta-parchment'}`}>{item?.nombre ?? itemId}</span>
-                <span className="block font-pixel text-[11px] text-ruta-muted">{item?.descripcion}</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block font-pixel text-[12px] font-bold ${marcado ? 'text-ruta-xp' : 'text-ruta-parchment'}`}>
+                  {item?.nombre ?? itemId}
+                </span>
+                <span className="block font-pixel text-[10px] leading-4 text-ruta-muted">{item?.descripcion}</span>
               </span>
             </button>
           );
         })}
       </div>
 
-      <div className="border-2 border-ruta-line bg-ruta-panel p-4">
-        <div className="font-pixel text-sm font-bold text-ruta-parchment">Pasos de la misión</div>
-        {quest.pasos.map((paso) => {
-          const hecho = progreso.pasosCompletados.includes(paso.id);
-          const esTurno = paso.orden === ordenActual && !hecha;
-          return (
-            <div key={paso.id} className={`mt-2 border p-3 ${hecho ? 'border-ruta-xp' : esTurno ? 'border-ruta-gold' : 'border-ruta-line'}`}>
-              <div className="font-pixel text-[13px] font-bold text-ruta-parchment">
-                {TIPO_ICONO[paso.tipo]} {paso.orden}. {paso.titulo} {hecho ? '✓' : ''}
-              </div>
-              <p className="mt-1 font-pixel text-xs leading-5 text-ruta-muted">{paso.detalle}</p>
-              {!hecho && esTurno && (
-                <div className="mt-2">
-                  {paso.tipo === 'dialogo' && paso.dialogoId && buscarDialogo(paso.dialogoId) ? (
-                    <button onClick={() => { sonar('blip', sonido); setDialogoAbierto(paso.dialogoId!); }} className="w-full border border-ruta-gold bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-gold">
-                      💬 HABLAR
-                    </button>
-                  ) : (
-                    <button onClick={() => { sonar('paso', sonido); completarPaso(quest.id, paso.id); }} className="w-full border border-ruta-line bg-ruta-void p-2.5 font-pixel text-xs font-bold text-ruta-parchment">
-                      {paso.tipo === 'ir' ? '📍 YA LLEGUÉ' : '✓ MARCAR PASO'}
-                    </button>
+      {/* Pasos como línea de tiempo */}
+      <div className="px-frame p-3">
+        <span className="font-pixel text-sm font-bold text-ruta-parchment">Ruta de la misión</span>
+        <div className="mt-2">
+          {quest.pasos.map((paso, i) => {
+            const hecho = progreso.pasosCompletados.includes(paso.id);
+            const esTurno = paso.orden === ordenActual && !hecha;
+            return (
+              <div key={paso.id} className="relative flex gap-2.5 pb-3 last:pb-0">
+                {i < quest.pasos.length - 1 && (
+                  <span className={`absolute bottom-0 left-[13px] top-7 w-[2px] ${hecho ? 'bg-ruta-xp' : 'bg-ruta-line'}`} />
+                )}
+                <span
+                  className={`relative z-10 flex h-7 w-7 flex-none items-center justify-center border-2 font-pixel text-[10px] font-bold ${
+                    hecho
+                      ? 'border-ruta-xp bg-ruta-xp text-ruta-ink'
+                      : esTurno
+                        ? 'border-ruta-gold bg-ruta-void text-ruta-gold'
+                        : 'border-ruta-line bg-ruta-void text-ruta-muted'
+                  }`}
+                >
+                  {hecho ? '✓' : paso.orden}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className={`font-pixel text-[12px] font-bold ${esTurno ? 'text-ruta-gold' : hecho ? 'text-ruta-xp' : 'text-ruta-parchment'}`}>
+                    {TIPO_ICONO[paso.tipo]} {paso.titulo}
+                  </div>
+                  <p className="mt-0.5 font-pixel text-[10px] leading-4 text-ruta-muted">{paso.detalle}</p>
+                  {!hecho && esTurno && (
+                    <div className="mt-1.5">
+                      {paso.tipo === 'dialogo' && paso.dialogoId && buscarDialogo(paso.dialogoId) ? (
+                        <button
+                          onClick={() => { sonar('blip', sonido); setDialogoAbierto(paso.dialogoId!); }}
+                          className="px-btn px-btn--on w-full py-2 font-pixel text-[11px] font-bold"
+                        >
+                          💬 HABLAR
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { sonar('paso', sonido); completarPaso(quest.id, paso.id); }}
+                          className="px-btn w-full py-2 font-pixel text-[11px] font-bold text-ruta-parchment"
+                        >
+                          {paso.tipo === 'ir' ? '📍 YA LLEGUÉ' : 'MARCAR PASO'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Cierre */}
       {!hecha && (
-        <div className="border-2 border-ruta-line bg-ruta-panel p-4">
+        <div className="px-frame p-3">
           <button
-            onClick={() => { if (!todosPasos) return; completarMision(quest.id); const nivelAhora = usePlayerStore.getState().jugador.nivel; sonar(nivelAhora > nivelAntes ? 'nivel' : 'completar', sonido); }}
+            onClick={() => {
+              if (!todosPasos) return;
+              completarMision(quest.id);
+              const nivelAhora = usePlayerStore.getState().jugador.nivel;
+              sonar(nivelAhora > nivelAntes ? 'nivel' : 'completar', sonido);
+            }}
             disabled={!todosPasos}
-            className={`w-full border p-3 font-pixel text-sm font-bold ${todosPasos ? 'border-ruta-gold bg-ruta-void text-ruta-gold' : 'border-ruta-line text-ruta-muted opacity-50'}`}
+            className={`px-btn w-full py-3 font-pixel text-xs font-bold ${todosPasos ? 'px-btn--on' : 'text-ruta-muted opacity-45'}`}
           >
-            🏁 COMPLETAR MISIÓN (+{quest.recompensa.xp} XP)
+            🏁 COMPLETAR (+{quest.recompensa.xp} XP)
           </button>
-          <button onClick={() => { sonar('rescate', sonido); registrarRescate(quest.id); }} className="mt-3 w-full border border-ruta-valentia p-3 font-pixel text-xs font-bold text-ruta-valentia">
-            🆘 FALLÓ POR CAUSA EXTERNA (+{quest.recompensaRescate?.xp ?? 0} XP parcial)
+          <button
+            onClick={() => { sonar('rescate', sonido); registrarRescate(quest.id); }}
+            className="px-btn px-btn--danger mt-2 w-full py-2.5 font-pixel text-[11px] font-bold"
+          >
+            🆘 FALLÓ POR CAUSA EXTERNA (+{quest.recompensaRescate?.xp ?? 0} XP)
           </button>
-          <p className="mt-2 text-center font-pixel text-[11px] leading-4 text-ruta-muted">
-            Ej. “se cayó el sistema”. Registra el intento, cobra XP parcial y la misión se reprograma.
+          <p className="mt-1.5 text-center font-pixel text-[9px] leading-3 text-ruta-muted">
+            “Se cayó el sistema”: cobra XP parcial y la misión queda reprogramada.
           </p>
         </div>
       )}
+
       {hecha && (
-        <div className="border-2 border-ruta-gold bg-ruta-panel p-4 text-center font-pixel text-sm font-bold text-ruta-gold">
-          ✓ MISIÓN COMPLETADA — revisa tu XP y atributos
+        <div className="px-frame px-frame--gold p-3 text-center font-pixel text-xs font-bold text-ruta-gold">
+          ✓ MISIÓN COMPLETADA
         </div>
       )}
 
+      {/* Modal diálogo */}
       {dialogoAbierto && buscarDialogo(dialogoAbierto) && (
-        <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/75 p-3">
           <div className="w-full max-w-md">
             <DialogueBox
               nodoInicial={buscarDialogo(dialogoAbierto)!}
@@ -267,7 +411,7 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
                 setDialogoAbierto(null);
               }}
             />
-            <button onClick={() => setDialogoAbierto(null)} className="mt-2 w-full border border-ruta-line bg-ruta-panel p-3 font-pixel text-xs text-ruta-muted">
+            <button onClick={() => setDialogoAbierto(null)} className="px-btn mt-2 w-full py-2 font-pixel text-[10px] text-ruta-muted">
               Cerrar sin terminar
             </button>
           </div>

@@ -1,104 +1,329 @@
-/** Sprites pixel-art dibujados a mano (SVG 16x16, crispEdges).
- *  Sin assets externos: nítidos a cualquier escala y funcionan offline.
- *  Se exportan como strings para usar en Leaflet divIcon y como componentes React.
+/**
+ * Sprites pixel-art dibujados a mano (SVG con crispEdges).
+ * Sin assets externos: nítidos a cualquier escala, offline, licencia propia.
+ * Paleta alineada a src/index.css (ruta.*).
  */
 
-// Utilidad: envuelve un contenido 16x16 en svg.
-const svg = (inner: string, extra = '') =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges" ${extra}>${inner}</svg>`;
-
 const PIEL = '#F2C9A0';
-const TINTA = '#1A1A24';
+const PIEL_SOMBRA = '#D9A87C';
+const TINTA = '#12121A';
+const ORO = '#FFD23F';
+const ORO_OSCURO = '#C99A16';
+const ROJO = '#FF5D5D';
+const AZUL = '#6AA8FF';
+const AZUL_OSCURO = '#3D6FC4';
+const VERDE = '#7CFC5A';
+const HUESO = '#F2E8C9';
+const GRIS = '#9AA0B2';
+const LINEA = '#2E2E3E';
 
-/** Joven con capucha y mochila (vista frontal). */
-export const AVATAR_SVG = svg(`
-  <rect x="4" y="1" width="8" height="7" fill="#FFD23F"/>
-  <rect x="5" y="3" width="6" height="4" fill="${PIEL}"/>
-  <rect x="6" y="4" width="1" height="1" fill="${TINTA}"/>
-  <rect x="9" y="4" width="1" height="1" fill="${TINTA}"/>
-  <rect x="3" y="8" width="10" height="7" fill="#6AA8FF"/>
-  <rect x="7" y="8" width="2" height="7" fill="#4A6FD4"/>
-  <rect x="1" y="9" width="2" height="5" fill="#FF5D5D"/>
-  <rect x="13" y="9" width="2" height="5" fill="#FF5D5D"/>
-`);
+const svg = (inner: string, viewBox = '0 0 16 16', extra = '') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" shape-rendering="crispEdges" ${extra}>${inner}</svg>`;
 
-/** Marco RPG para retratos. */
-const marco = (inner: string) => svg(`
-  <rect width="16" height="16" fill="#1A1A24"/>
-  <rect x="1" y="1" width="14" height="14" fill="#F2E8C9"/>
-  ${inner}
-  <rect x="0" y="0" width="16" height="1" fill="#2E2E3E"/>
-  <rect x="0" y="15" width="16" height="1" fill="#2E2E3E"/>
-  <rect x="0" y="0" width="1" height="16" fill="#2E2E3E"/>
-  <rect x="15" y="0" width="1" height="16" fill="#2E2E3E"/>
-`);
+const px = (x: number, y: number, w: number, h: number, fill: string) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"/>`;
+
+/* ────────────────────────────── AVATAR (20×24) ────────────────────────────── */
+
+/**
+ * El joven con capucha y mochila, vista 3/4 cenital (estilo RPG de mapa).
+ * Capucha dorada, bufanda roja, chaqueta azul, mochila con correas y botas.
+ */
+export const AVATAR_SVG = svg(
+  [
+    // mochila (detrás, asoma a los lados)
+    px(2, 12, 3, 7, '#C23B3B'),
+    px(15, 12, 3, 7, '#C23B3B'),
+    // capucha: contorno y volumen
+    px(5, 1, 10, 2, TINTA),
+    px(4, 2, 12, 6, TINTA),
+    px(5, 2, 10, 6, ORO),
+    px(6, 1, 8, 1, ORO_OSCURO),
+    px(5, 7, 10, 1, ORO_OSCURO),
+    px(4, 4, 1, 4, ORO_OSCURO),
+    px(15, 4, 1, 4, ORO_OSCURO),
+    // sombra interior de la capucha
+    px(7, 3, 6, 4, '#8A6510'),
+    // rostro
+    px(7, 3, 6, 4, PIEL),
+    px(7, 6, 6, 1, PIEL_SOMBRA),
+    // ojos + boca
+    px(8, 4, 1, 1, TINTA),
+    px(11, 4, 1, 1, TINTA),
+    px(9, 6, 2, 1, '#B07A5A'),
+    // bufanda
+    px(6, 8, 8, 2, ROJO),
+    px(6, 9, 2, 4, '#C23B3B'),
+    // torso (chaqueta)
+    px(5, 10, 10, 9, TINTA),
+    px(6, 10, 8, 8, AZUL),
+    px(6, 10, 8, 1, '#8CC0FF'),
+    px(6, 16, 8, 2, AZUL_OSCURO),
+    // correas de la mochila
+    px(8, 10, 1, 8, TINTA),
+    px(11, 10, 1, 8, TINTA),
+    // brazos
+    px(4, 11, 2, 6, AZUL_OSCURO),
+    px(14, 11, 2, 6, AZUL_OSCURO),
+    px(4, 16, 2, 2, PIEL),
+    px(14, 16, 2, 2, PIEL),
+    // piernas
+    px(6, 19, 3, 3, '#2B3450'),
+    px(11, 19, 3, 3, '#2B3450'),
+    // botas
+    px(6, 22, 3, 2, '#7A5230'),
+    px(11, 22, 3, 2, '#7A5230'),
+    px(6, 23, 4, 1, TINTA),
+    px(10, 23, 4, 1, TINTA),
+  ].join(''),
+  '0 0 20 24',
+  'width="40" height="48"',
+);
+
+/* ────────────────────────────── RETRATOS NPC (16×16) ────────────────────────────── */
+
+/** Marco RPG de 16 bits: doble borde con esquinas recortadas. */
+const marco = (inner: string, acento = ORO) => svg(
+  [
+    px(0, 0, 16, 16, TINTA),
+    px(1, 1, 14, 14, acento === ORO ? '#2A2416' : LINEA),
+    px(2, 2, 12, 12, '#171720'),
+    inner,
+    // borde interior luminoso
+    px(2, 2, 12, 1, acento),
+    px(2, 13, 12, 1, acento),
+    px(2, 2, 1, 12, acento),
+    px(13, 2, 1, 12, acento),
+    // remaches de esquina
+    px(0, 0, 1, 1, HUESO),
+    px(15, 0, 1, 1, HUESO),
+    px(0, 15, 1, 1, HUESO),
+    px(15, 15, 1, 1, HUESO),
+  ].join(''),
+);
 
 const RETRATOS: Record<string, string> = {
-  'don-tito': marco(`
-    <rect x="4" y="4" width="8" height="8" fill="${PIEL}"/>
-    <rect x="3" y="3" width="10" height="2" fill="#C9C9C9"/>
-    <rect x="3" y="3" width="2" height="6" fill="#C9C9C9"/>
-    <rect x="11" y="3" width="2" height="6" fill="#C9C9C9"/>
-    <rect x="5" y="6" width="1" height="1" fill="${TINTA}"/>
-    <rect x="10" y="6" width="1" height="1" fill="${TINTA}"/>
-    <rect x="6" y="9" width="4" height="1" fill="#5A5A5A"/>
-    <rect x="4" y="12" width="8" height="3" fill="#3A5A8C"/>
-  `),
-  'ana-tens': marco(`
-    <rect x="4" y="4" width="8" height="8" fill="${PIEL}"/>
-    <rect x="3" y="2" width="10" height="4" fill="#3A2E2E"/>
-    <rect x="11" y="4" width="2" height="6" fill="#3A2E2E"/>
-    <rect x="6" y="2" width="4" height="2" fill="#FFFFFF"/>
-    <rect x="7" y="1" width="2" height="4" fill="#FF5D5D"/>
-    <rect x="6" y="2" width="4" height="2" fill="#FF5D5D"/>
-    <rect x="5" y="6" width="1" height="1" fill="${TINTA}"/>
-    <rect x="10" y="6" width="1" height="1" fill="${TINTA}"/>
-    <rect x="7" y="9" width="2" height="1" fill="#B46A6A"/>
-    <rect x="4" y="12" width="8" height="3" fill="#2E8C6A"/>
-  `),
-  seba: marco(`
-    <rect x="4" y="5" width="8" height="7" fill="${PIEL}"/>
-    <rect x="3" y="2" width="10" height="3" fill="#FFD23F"/>
-    <rect x="11" y="3" width="3" height="1" fill="#FFD23F"/>
-    <rect x="3" y="5" width="1" height="4" fill="#3A3A3A"/>
-    <rect x="12" y="5" width="1" height="4" fill="#3A3A3A"/>
-    <rect x="5" y="7" width="1" height="1" fill="${TINTA}"/>
-    <rect x="10" y="7" width="1" height="1" fill="${TINTA}"/>
-    <rect x="6" y="10" width="4" height="1" fill="${TINTA}"/>
-    <rect x="4" y="12" width="8" height="3" fill="#6A6AD4"/>
-  `),
+  // Don Tito: canoso, lentes, camisa institucional.
+  'don-tito': marco(
+    [
+      px(4, 4, 8, 9, PIEL),
+      px(4, 12, 8, 1, PIEL_SOMBRA),
+      // pelo canoso con entradas
+      px(3, 2, 10, 3, '#D8D8D8'),
+      px(3, 4, 1, 4, '#D8D8D8'),
+      px(12, 4, 1, 4, '#D8D8D8'),
+      px(5, 2, 2, 1, '#AFAFAF'),
+      // lentes
+      px(5, 6, 3, 2, '#0B0B12'),
+      px(9, 6, 3, 2, '#0B0B12'),
+      px(8, 6, 1, 2, '#5A5A66'),
+      px(6, 6, 1, 1, '#8CC0FF'),
+      px(10, 6, 1, 1, '#8CC0FF'),
+      // bigote y boca
+      px(6, 9, 4, 1, '#8A8A8A'),
+      px(7, 11, 2, 1, '#8A5A4A'),
+      // camisa + corbata
+      px(3, 13, 10, 3, '#3A5A8C'),
+      px(7, 13, 2, 3, '#7A2A2A'),
+      px(3, 13, 10, 1, '#4E76B0'),
+    ].join(''),
+  ),
+  // Ana la Tens: pelo con volumen, delantal de farmacia.
+  'ana-tens': marco(
+    [
+      px(4, 4, 8, 9, PIEL),
+      px(4, 12, 8, 1, PIEL_SOMBRA),
+      // cabello castaño
+      px(2, 3, 12, 6, '#3A2A22'),
+      px(2, 9, 2, 4, '#3A2A22'),
+      px(12, 9, 2, 4, '#3A2A22'),
+      px(4, 3, 8, 2, '#5A4034'),
+      // flequillo
+      px(4, 5, 8, 1, '#3A2A22'),
+      // ojos
+      px(5, 7, 1, 1, TINTA),
+      px(10, 7, 1, 1, TINTA),
+      px(12, 7, 1, 1, '#FFFFFF'),
+      // mejillas y boca
+      px(5, 9, 1, 1, '#E89A8A'),
+      px(10, 9, 1, 1, '#E89A8A'),
+      px(7, 10, 2, 1, '#B4635A'),
+      // delantal verde farmacia
+      px(3, 13, 10, 3, '#2E8C6A'),
+      px(3, 13, 10, 1, '#3FB98C'),
+      px(7, 13, 2, 2, HUESO),
+    ].join(''),
+  ),
+  // Seba: gorro, sonrisa, polera de trabajo.
+  seba: marco(
+    [
+      px(4, 4, 8, 9, PIEL),
+      px(4, 12, 8, 1, PIEL_SOMBRA),
+      // gorro
+      px(2, 2, 12, 3, ORO),
+      px(2, 5, 12, 1, ORO_OSCURO),
+      px(12, 5, 5, 1, ORO),
+      px(4, 2, 8, 1, '#FFE887'),
+      // pelo lateral
+      px(3, 5, 1, 4, '#3A3A3A'),
+      px(12, 5, 1, 4, '#3A3A3A'),
+      // ojos
+      px(5, 7, 1, 1, TINTA),
+      px(10, 7, 1, 1, TINTA),
+      // sonrisa
+      px(7, 10, 2, 1, TINTA),
+      px(6, 9, 1, 1, TINTA),
+      px(9, 9, 1, 1, TINTA),
+      // polera
+      px(3, 13, 10, 3, '#6A6AD4'),
+      px(3, 13, 10, 1, '#8A8AE8'),
+    ].join(''),
+  ),
+  // Vecino genérico (misiones comunitarias).
+  vecino: marco(
+    [
+      px(4, 4, 8, 9, PIEL),
+      px(4, 12, 8, 1, PIEL_SOMBRA),
+      px(3, 3, 10, 3, '#6B4A3A'),
+      px(5, 6, 1, 1, TINTA),
+      px(10, 6, 1, 1, TINTA),
+      px(7, 9, 2, 1, '#8A5A4A'),
+      px(3, 13, 10, 3, '#4A6A4A'),
+    ].join(''),
+    GRIS,
+  ),
 };
 
 export const retratoSvg = (id: string): string =>
-  RETRATOS[id] ??
-  marco(`<rect x="4" y="4" width="8" height="8" fill="${PIEL}"/>`);
+  RETRATOS[id] ?? RETRATOS.vecino;
 
-/** Pin de mapa estilo RPG (! activa, · discreta). */
-export const pinSvg = (activo: boolean, sensible?: boolean): string =>
-  svg(`
-  <path d="M8 0 C4 0 2 3 2 6 C2 10 8 16 8 16 C8 16 14 10 14 6 C14 3 12 0 8 0 Z"
-    fill="${activo ? '#1A1A24' : 'rgba(26,26,36,0.9)'}"
-    stroke="${activo ? '#FFD23F' : '#2E2E3E'}" stroke-width="1"/>
-  <rect x="7" y="4" width="2" height="2" fill="${activo ? '#FFD23F' : '#9AA0B2'}"/>
-  ${sensible ? '' : `<rect x="7" y="7" width="2" height="1" fill="${activo ? '#FFD23F' : '#9AA0B2'}"/>`}
-`, 'width="30" height="30"');
+/* ────────────────────────────── PINES DE MAPA ────────────────────────────── */
+
+export type PinEstado = 'activa' | 'disponible' | 'completada' | 'sensible';
+
+/**
+ * Pin tipo gota con glifo. La activa pulsa (CSS .ru-pin--activa).
+ * Sensible usa un rombo violeta con "?" para no delatar el lugar.
+ */
+export function pinSvg(estado: PinEstado): string {
+  const activa = estado === 'activa';
+  const hecha = estado === 'completada';
+  const sensible = estado === 'sensible';
+  const borde = activa ? ORO : hecha ? VERDE : sensible ? '#B07CFF' : GRIS;
+  const relleno = activa ? '#241E10' : hecha ? '#12210F' : sensible ? '#1E1630' : '#1A1A24';
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" shape-rendering="crispEdges" width="24" height="32">
+  <rect x="9" y="29" width="6" height="3" fill="rgba(0,0,0,0.45)"/>
+  <path d="M12 1 C6.5 1 3 5 3 10.5 C3 16 8 21 12 30 C16 21 21 16 21 10.5 C21 5 17.5 1 12 1 Z" fill="${TINTA}"/>
+  <path d="M12 3 C7.6 3 5 6.2 5 10.4 C5 15 9 19.6 12 26.6 C15 19.6 19 15 19 10.4 C19 6.2 16.4 3 12 3 Z" fill="${borde}"/>
+  <path d="M12 5 C8.8 5 7 7.4 7 10.4 C7 14 10 17.8 12 22.4 C14 17.8 17 14 17 10.4 C17 7.4 15.2 5 12 5 Z" fill="${relleno}"/>
+  <rect x="9" y="6" width="6" height="1" fill="${borde}" opacity="0.55"/>
+</svg>`;
+}
+
+/** Glifo del pin como texto SVG aparte (para nitidez del carácter). */
+export function pinGlifo(estado: PinEstado): string {
+  return estado === 'completada' ? '✓' : estado === 'sensible' ? '?' : '!';
+}
+
+/* ────────────────────────────── ICONOS DE ATRIBUTO ────────────────────────────── */
 
 const ICONOS_ATR: Record<string, string> = {
-  carisma: `<rect x="3" y="6" width="10" height="6" fill="#FFB347"/><rect x="5" y="8" width="6" height="1" fill="${TINTA}"/><rect x="5" y="10" width="4" height="1" fill="${TINTA}"/><rect x="6" y="12" width="2" height="2" fill="#FFB347"/>`,
-  valentia: `<rect x="7" y="2" width="2" height="3" fill="#FF5D5D"/><rect x="5" y="5" width="6" height="8" fill="#FF5D5D"/><rect x="7" y="7" width="2" height="4" fill="#FFD23F"/>`,
-  burocracia: `<rect x="4" y="2" width="8" height="12" fill="#6AA8FF"/><rect x="6" y="4" width="4" height="1" fill="#FFFFFF"/><rect x="6" y="6" width="4" height="1" fill="#FFFFFF"/><rect x="6" y="8" width="4" height="1" fill="#FFFFFF"/><rect x="6" y="10" width="2" height="1" fill="#FFFFFF"/>`,
-  supervivencia: `<rect x="3" y="5" width="10" height="8" fill="#7CFC5A"/><rect x="3" y="5" width="10" height="2" fill="#2E8C4A"/><rect x="7" y="3" width="2" height="2" fill="#2E8C4A"/>`,
+  // Carisma: máscara/boca sonriente
+  carisma: [
+    px(3, 5, 10, 7, '#FFB347'),
+    px(4, 6, 8, 2, '#7A4A10'),
+    px(5, 9, 6, 1, '#7A4A10'),
+    px(3, 12, 2, 1, '#FFB347'),
+    px(11, 12, 2, 1, '#FFB347'),
+  ].join(''),
+  // Valentía: llama
+  valentia: [
+    px(7, 1, 2, 3, '#FF5D5D'),
+    px(5, 4, 6, 3, '#FF5D5D'),
+    px(4, 7, 8, 5, '#FF5D5D'),
+    px(6, 6, 4, 4, '#FFB347'),
+    px(7, 8, 2, 3, ORO),
+  ].join(''),
+  // Burocracia: documento con líneas
+  burocracia: [
+    px(4, 1, 8, 14, '#6AA8FF'),
+    px(4, 1, 8, 1, '#9CC6FF'),
+    px(6, 4, 4, 1, '#FFFFFF'),
+    px(6, 6, 4, 1, '#FFFFFF'),
+    px(6, 8, 4, 1, '#FFFFFF'),
+    px(6, 10, 2, 1, '#FFFFFF'),
+    px(4, 13, 8, 2, '#3D6FC4'),
+  ].join(''),
+  // Supervivencia: mochila
+  supervivencia: [
+    px(7, 2, 2, 2, '#2E8C4A'),
+    px(4, 4, 8, 9, '#7CFC5A'),
+    px(4, 6, 8, 2, '#2E8C4A'),
+    px(6, 9, 4, 3, '#1E6A34'),
+    px(4, 13, 3, 2, '#2E8C4A'),
+    px(9, 13, 3, 2, '#2E8C4A'),
+  ].join(''),
 };
 
 export const attrSvg = (key: string): string =>
-  svg(ICONOS_ATR[key] ?? `<rect x="4" y="4" width="8" height="8" fill="#9AA0B2"/>`, 'width="14" height="14"');
+  svg(ICONOS_ATR[key] ?? px(4, 4, 8, 8, GRIS), '0 0 16 16');
 
-/** Wrapper React para los SVG string (dangerouslySetInnerHTML controlado: solo sprites propios). */
+/** Iconos de UI (16×16) para chips y botones. */
+const UI: Record<string, string> = {
+  gps: [
+    px(1, 7, 14, 2, VERDE),
+    px(7, 1, 2, 14, VERDE),
+    px(5, 5, 6, 6, '#0D0D14'),
+    px(6, 6, 4, 4, VERDE),
+  ].join(''),
+  joystick: [
+    px(6, 1, 4, 2, GRIS),
+    px(7, 3, 2, 5, GRIS),
+    px(3, 8, 10, 6, '#3A3A4D'),
+    px(6, 10, 4, 2, ORO),
+  ].join(''),
+  fog: [
+    px(1, 6, 14, 6, '#6E6E8C'),
+    px(3, 4, 4, 2, '#8A8AA8'),
+    px(9, 8, 4, 2, '#8A8AA8'),
+  ].join(''),
+  soundOn: [
+    px(2, 6, 3, 4, HUESO),
+    px(5, 4, 2, 8, HUESO),
+    px(9, 5, 1, 6, GRIS),
+    px(11, 3, 1, 10, GRIS),
+  ].join(''),
+  soundOff: [
+    px(2, 6, 3, 4, HUESO),
+    px(5, 4, 2, 8, HUESO),
+    px(9, 5, 6, 1, ROJO),
+    px(9, 10, 6, 1, ROJO),
+  ].join(''),
+  bell: [
+    px(6, 2, 4, 1, ORO),
+    px(4, 3, 8, 7, ORO),
+    px(3, 10, 10, 2, ORO_OSCURO),
+    px(7, 13, 2, 1, ORO),
+  ].join(''),
+  target: [
+    px(6, 1, 4, 1, ORO),
+    px(6, 14, 4, 1, ORO),
+    px(1, 6, 1, 4, ORO),
+    px(14, 6, 1, 4, ORO),
+    px(7, 7, 2, 2, ORO),
+  ].join(''),
+};
+
+export const uiSvg = (key: string): string => svg(UI[key] ?? px(6, 6, 4, 4, GRIS));
+
+/** Wrapper React para los SVG string (solo sprites propios). */
 export function Sprite({ svg: html, size = 14, titulo }: { svg: string; size?: number; titulo?: string }) {
   return (
     <span
       title={titulo}
-      style={{ display: 'inline-flex', width: size, height: size }}
+      aria-hidden={titulo ? undefined : true}
+      style={{ display: 'inline-flex', width: size, height: size, flex: 'none' }}
       dangerouslySetInnerHTML={{ __html: html.replace('<svg ', `<svg width="${size}" height="${size}" `) }}
     />
   );

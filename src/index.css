@@ -29,15 +29,89 @@ body {
   color: var(--color-ruta-parchment);
   font-family: var(--font-pixel);
   overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeSpeed;
 }
 
-/* OSM claro → modo noche por CSS (sin API key) */
+/* ── Fondo con grano sutil (textura de cartucho, sin imagen externa) ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.045;
+  background-image:
+    repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, #fff 0 1px, transparent 1px 3px);
+}
+
+/* ── Marco 16-bit con esquinas recortadas ── */
+.px-frame {
+  position: relative;
+  background: var(--color-ruta-panel);
+  border: 2px solid var(--color-ruta-line);
+  box-shadow: 0 2px 0 0 #05050b, inset 0 0 0 1px #23232f;
+  clip-path: polygon(
+    0 6px, 6px 0,
+    calc(100% - 6px) 0, 100% 6px,
+    100% calc(100% - 6px), calc(100% - 6px) 100%,
+    6px 100%, 0 calc(100% - 6px)
+  );
+}
+.px-frame--gold {
+  border-color: var(--color-ruta-gold);
+  box-shadow: 0 2px 0 0 #3a2c00, inset 0 0 0 1px #6a5310;
+}
+
+/* ── Botón pixel con relieve y pulsación ── */
+.px-btn {
+  border: 2px solid var(--color-ruta-line);
+  background: #14141d;
+  color: var(--color-ruta-parchment);
+  box-shadow: 0 2px 0 0 #05050b;
+  transition: transform 60ms steps(2), box-shadow 60ms steps(2), background 120ms;
+  clip-path: polygon(0 3px, 3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px));
+}
+.px-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 0 #05050b;
+  background: #1c1c28;
+}
+.px-btn--on {
+  border-color: var(--color-ruta-gold);
+  color: var(--color-ruta-gold);
+  background: #241e10;
+}
+.px-btn--xp {
+  border-color: var(--color-ruta-xp);
+  color: var(--color-ruta-xp);
+}
+.px-btn--danger {
+  border-color: var(--color-ruta-valentia);
+  color: var(--color-ruta-valentia);
+}
+
+/* ── Barra XP segmentada ── */
+.px-xp {
+  background-image: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-ruta-xp) 92%, #fff) 0 6px,
+    var(--color-ruta-xp) 6px 8px
+  );
+}
+
+/* ── Mapa: tiles nocturnos + viñeta + scanlines ── */
 .osm-dark-tiles {
-  filter: invert(100%) hue-rotate(180deg) brightness(0.92) contrast(0.92) grayscale(0.15);
+  filter: invert(100%) hue-rotate(180deg) brightness(0.9) contrast(0.95) saturate(0.55);
 }
 .leaflet-container {
-  background: #0d0d14;
+  background: #08080e !important;
   font-family: var(--font-pixel);
+  outline: none;
+}
+.leaflet-tile-pane {
+  background: #08080e;
 }
 .leaflet-bar a {
   background: #1a1a24;
@@ -45,10 +119,166 @@ body {
   border-color: #2e2e3e;
 }
 .leaflet-control-attribution {
-  background: rgba(13, 13, 20, 0.8) !important;
+  background: rgba(13, 13, 20, 0.78) !important;
   color: #9aa0b2 !important;
   font-size: 9px !important;
 }
 .leaflet-control-attribution a {
   color: #9aa0b2 !important;
+}
+.ru-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 401;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 55%, transparent 42%, rgba(5, 5, 11, 0.55) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px);
+}
+
+/* ── Avatar del jugador ── */
+.ru-avatar {
+  position: relative;
+  width: 48px;
+  height: 60px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ru-avatar__halo {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  border: 2px solid var(--color-ruta-gold);
+  border-radius: 9999px;
+  opacity: 0.55;
+  animation: ru-halo 2.4s ease-out infinite;
+}
+.ru-avatar__ring {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255, 210, 63, 0.35), transparent 70%);
+}
+.ru-avatar__body {
+  position: relative;
+  animation: ru-bob 1.6s steps(2, end) infinite;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55));
+}
+.ru-avatar__shadow {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  width: 24px;
+  height: 7px;
+  margin-left: -12px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.55);
+  filter: blur(1px);
+}
+@keyframes ru-halo {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  70% { transform: scale(1.35); opacity: 0.12; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes ru-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* ── Pines de misión ── */
+.ru-pin {
+  position: relative;
+  width: 26px;
+  height: 34px;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
+  transition: transform 120ms steps(2);
+}
+.ru-pin svg {
+  width: 26px;
+  height: 34px;
+}
+.ru-pin:hover {
+  transform: scale(1.12) translateY(-2px);
+}
+.ru-pin--activa {
+  animation: ru-pin-pulse 1.4s ease-in-out infinite;
+}
+.ru-pin--activa::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 26px;
+  height: 8px;
+  margin-left: -13px;
+  border-radius: 9999px;
+  background: radial-gradient(ellipse, rgba(255, 210, 63, 0.45), transparent 70%);
+}
+.ru-pin__glyph {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7px;
+  text-align: center;
+  font: 700 12px/1 var(--font-pixel);
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+@keyframes ru-pin-pulse {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.06); }
+}
+
+/* ── Fantasmas del radar ── */
+.ru-ghost {
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  border: 2px dashed #6aa8ff;
+  background: rgba(26, 26, 36, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  opacity: 0.85;
+  animation: ru-ghost 3s ease-in-out infinite;
+}
+@keyframes ru-ghost {
+  0%, 100% { transform: translateY(0); opacity: 0.75; }
+  50% { transform: translateY(-2px); opacity: 0.95; }
+}
+
+/* ── Scrollbar pixel ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ruta-line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ruta-line);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Respeto a reduce-motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .ru-avatar__halo,
+  .ru-avatar__body,
+  .ru-pin--activa,
+  .ru-ghost {
+    animation: none !important;
+  }
 }

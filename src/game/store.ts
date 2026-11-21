@@ -112,6 +112,13 @@ export interface QuestProgress {
   updatedAt: string;
 }
 
+export const PROGRESO_VACIO: QuestProgress = {
+  estado: 'disponible',
+  pasosCompletados: [],
+  checks: {},
+  updatedAt: '',
+};
+
 const nuevoProgreso = (): QuestProgress => ({
   estado: 'disponible',
   pasosCompletados: [],

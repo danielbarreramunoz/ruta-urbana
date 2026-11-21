@@ -1,8 +1,9 @@
-import { useExplorationStore, JOYSTICK_STEP_M } from '../game/store';
+import { JOYSTICK_STEP_M, useExplorationStore } from '../game/store';
+import { Sprite, uiSvg } from './sprites';
 
 const S = JOYSTICK_STEP_M;
 
-/** Joystick / Mock GPS para probar desde el escritorio. Cada toque mueve ~25 m. */
+/** Pad de movimiento (mock GPS). Cada toque avanza ~25 m en esa dirección. */
 export default function Joystick({ onCenter }: { onCenter: () => void }) {
   const moveMock = useExplorationStore((s) => s.moveMock);
   const botones: { label: string; dx: number; dy: number; accion?: () => void }[] = [
@@ -10,25 +11,29 @@ export default function Joystick({ onCenter }: { onCenter: () => void }) {
     { label: '↑', dx: 0, dy: S },
     { label: '↗', dx: S, dy: S },
     { label: '←', dx: -S, dy: 0 },
-    { label: '⊙', dx: 0, dy: 0, accion: onCenter },
+    { label: '', dx: 0, dy: 0, accion: onCenter },
     { label: '→', dx: S, dy: 0 },
     { label: '↙', dx: -S, dy: -S },
     { label: '↓', dx: 0, dy: -S },
     { label: '↘', dx: S, dy: -S },
   ];
   return (
-    <div className="border-2 border-ruta-line bg-ruta-panel/95 p-2">
-      <div className="mb-1 text-center font-pixel text-[10px] tracking-widest text-ruta-muted">
-        MOCK GPS · PASO 25 M
+    <div className="px-frame px-frame--gold p-2">
+      <div className="mb-1.5 flex items-center justify-between px-0.5">
+        <span className="font-pixel text-[9px] tracking-widest text-ruta-gold">PAD</span>
+        <span className="font-pixel text-[9px] text-ruta-muted">25 M</span>
       </div>
-      <div className="mx-auto grid w-[156px] grid-cols-3 gap-1">
-        {botones.map((b) => (
+      <div className="grid grid-cols-3 gap-1">
+        {botones.map((b, i) => (
           <button
-            key={b.label}
+            key={i}
+            aria-label={b.accion ? 'Centrar mapa' : `Mover ${b.label}`}
             onClick={() => (b.accion ? b.accion() : moveMock(b.dx, b.dy))}
-            className="flex h-12 w-12 items-center justify-center border border-ruta-line bg-ruta-void font-pixel text-lg text-ruta-parchment active:bg-ruta-line"
+            className={`px-btn flex h-11 w-11 items-center justify-center font-pixel text-base ${
+              b.accion ? 'px-btn--on' : 'text-ruta-parchment'
+            }`}
           >
-            {b.label}
+            {b.accion ? <Sprite svg={uiSvg('target')} size={16} /> : b.label}
           </button>
         ))}
       </div>
