@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { questById } from './data';
 import { cellsAround } from './fog';
-import type { Atributos, Jugador, QuestStatus } from './types';
+import type { Atributos, DialogueNode, Jugador, Quest, QuestStatus } from './types';
 
 const XP_BASE = 100;
 export const xpParaNivel = (nivel: number) => Math.round(XP_BASE * Math.pow(1.35, nivel - 1));
@@ -35,6 +35,17 @@ interface PlayerState {
   ganarXP: (cantidad: number, atributos?: Partial<Atributos>) => void;
   fijarMisionActiva: (questId: string | null) => void;
   registrarMision: (questId: string, exito: boolean) => void;
+  /** Reemplaza el progreso local por uno remoto más nuevo (last-write-wins). */
+  aplicarPerfilRemoto: (p: {
+    nombre: string;
+    nivel: number;
+    xp: number;
+    xpParaSiguienteNivel: number;
+    atributos: Atributos;
+    misionesCompletadas: string[];
+    misionesFallidas: string[];
+    updatedAt: string;
+  }) => void;
   reiniciar: (nombre?: string) => void;
 }
 
@@ -74,6 +85,20 @@ export const usePlayerStore = create<PlayerState>()(
             updatedAt: new Date().toISOString(),
           },
         })),
+      aplicarPerfilRemoto: (p) =>
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            nombre: p.nombre,
+            nivel: p.nivel,
+            xp: p.xp,
+            xpParaSiguienteNivel: p.xpParaSiguienteNivel,
+            atributos: { ...p.atributos },
+            misionesCompletadas: [...p.misionesCompletadas],
+            misionesFallidas: [...p.misionesFallidas],
+            updatedAt: p.updatedAt,
+          },
+        })),
       reiniciar: (nombre) => set({ jugador: jugadorInicial(nombre) }),
     }),
     { name: 'ruta-urbana/jugador', storage: createJSONStorage(() => localStorage) },
@@ -96,8 +121,10 @@ const nuevoProgreso = (): QuestProgress => ({
 
 interface QuestState {
   progresos: Record<string, QuestProgress>;
+  customs: { quest: Quest; dialogos: DialogueNode[] }[];
   progresoDe: (questId: string) => QuestProgress;
   activar: (questId: string) => void;
+  agregarCustom: (quest: Quest, dialogos: DialogueNode[]) => void;
   toggleCheck: (questId: string, itemId: string) => void;
   completarPaso: (questId: string, stepId: string) => void;
   completarMision: (questId: string) => void;
@@ -109,7 +136,12 @@ export const useQuestStore = create<QuestState>()(
   persist(
     (set, get) => ({
       progresos: {},
+      customs: [],
       progresoDe: (questId) => get().progresos[questId] ?? nuevoProgreso(),
+      agregarCustom: (quest, dialogos) =>
+        set((s) => ({
+          customs: [...s.customs.filter((c) => c.quest.id !== quest.id), { quest, dialogos }],
+        })),
       activar: (questId) =>
         set((s) => {
           const anterior = usePlayerStore.getState().jugador.misionActivaId;
@@ -175,15 +207,58 @@ export const useQuestStore = create<QuestState>()(
             progresos: { ...s.progresos, [questId]: { ...actual, estado: 'reprogramada', updatedAt: new Date().toISOString() } },
           };
         }),
-      resetearTodo: () => set({ progresos: {} }),
+      resetearTodo: () => set({ progresos: {}, customs: [] }),
     }),
     {
       name: 'ruta-urbana/misiones',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ progresos: s.progresos }) as QuestState,
+      partialize: (s) => ({ progresos: s.progresos, customs: s.customs }) as QuestState,
     },
   ),
 );
+
+import { dialogueById, quests as questsStatic } from './data';
+
+/** Catálogo completo: oficial + creadas localmente/comunitarias. */
+export function listaMisiones(): Quest[] {
+  const customs = useQuestStore.getState().customs.map((c) => c.quest);
+  return [...questsStatic, ...customs];
+}
+
+/** Busca en oficial + customs (no usar questById directo en UI). */
+export function buscarQuest(id: string): Quest | undefined {
+  return useQuestStore.getState().customs.find((c) => c.quest.id === id)?.quest ?? questById.get(id);
+}
+
+export function buscarDialogo(id: string): DialogueNode | undefined {
+  const customs = useQuestStore.getState().customs.flatMap((c) => c.dialogos);
+  return customs.find((d) => d.id === id) ?? dialogueById.get(id);
+}
+
+/** Vecinos del radar (efímero, no se persiste). */
+export interface OtroJugador {
+  id: string;
+  nombre: string;
+  nivel: number;
+  pos: { lat: number; lng: number };
+  at: number;
+}
+
+interface PresenceState {
+  otros: OtroJugador[];
+  ver: (o: OtroJugador) => void;
+  limpiar: () => void;
+}
+
+export const usePresenceStore = create<PresenceState>()((set) => ({
+  otros: [],
+  ver: (o) =>
+    set((s) => {
+      const resto = s.otros.filter((x) => x.id !== o.id);
+      return { otros: [...resto, o].slice(-20) };
+    }),
+  limpiar: () => set({ otros: [] }),
+}));
 
 /** Plaza de Armas, Santiago — origen del modo joystick. */
 export const DEFAULT_ORIGIN = { lat: -33.4372, lng: -70.6506 };

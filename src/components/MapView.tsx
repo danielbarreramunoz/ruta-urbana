@@ -7,7 +7,7 @@ import { quests } from '../game/data';
 import { REVEAL_RADIUS_M, cellCenter, cellPolygon } from '../game/fog';
 import { activarAvisos, useProximity } from '../game/useProximity';
 import { permisoAvisos } from '../game/alerts';
-import { useAlertStore, useExplorationStore, usePlayerStore, useSettingsStore } from '../game/store';
+import { useAlertStore, useExplorationStore, usePlayerStore, usePresenceStore, useQuestStore, useSettingsStore } from '../game/store';
 
 /**
  * Mapa base + niebla + proximidad (Fase 3, versión PWA).
@@ -24,6 +24,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pinesRef = useRef<L.LayerGroup | null>(null);
   const radiosRef = useRef<L.LayerGroup | null>(null);
+  const fantasmasRef = useRef<L.LayerGroup | null>(null);
   const visitedRef = useRef<string[]>([]);
 
   const { efectiva, mode, permiso, alerta, descartarAlerta } = useProximity();
@@ -31,6 +32,8 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const visited = useExplorationStore((s) => s.visited);
   const resetFog = useExplorationStore((s) => s.resetFog);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
+  const customs = useQuestStore((s) => s.customs);
+  const otros = usePresenceStore((s) => s.otros);
   const avisosActivados = useAlertStore((s) => s.avisosActivados);
   const sonido = useSettingsStore((s) => s.sonido);
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
@@ -117,6 +120,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
 
     pinesRef.current = L.layerGroup().addTo(map);
     radiosRef.current = L.layerGroup().addTo(map);
+    fantasmasRef.current = L.layerGroup().addTo(map);
 
     const redibujar = () => dibujarRef.current();
     map.on('moveend zoomend resize', redibujar);
@@ -136,7 +140,8 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     if (!pines || !radios) return;
     pines.clearLayers();
     radios.clearLayers();
-    for (const q of quests) {
+    const todas = [...quests, ...customs.map((c) => c.quest)];
+    for (const q of todas) {
       for (const u of q.ubicaciones ?? []) {
         const activa = q.id === misionActivaId;
         const pin = L.marker([u.latitud, u.longitud], {
@@ -158,7 +163,27 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
         }
       }
     }
-  }, [misionActivaId]);
+  }, [misionActivaId, customs]);
+
+  // Fantasmas del radar (posiciones difuminadas, nunca exactas).
+  useEffect(() => {
+    const capa = fantasmasRef.current;
+    if (!capa) return;
+    capa.clearLayers();
+    for (const o of otros) {
+      const pin = L.marker([o.pos.lat, o.pos.lng], {
+        icon: L.divIcon({
+          html: `<div style="width:26px;height:26px;border-radius:9999px;background:rgba(26,26,36,0.85);border:2px solid #6AA8FF;color:#F2E8C9;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:monospace" title="${o.nombre} (aprox)">👤</div>`,
+          className: '',
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+        keyboard: false,
+        interactive: false,
+      });
+      capa.addLayer(pin);
+    }
+  }, [otros]);
 
   // Seguir avatar + mover marcador y anillo.
   useEffect(() => {

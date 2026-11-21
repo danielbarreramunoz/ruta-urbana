@@ -2,21 +2,24 @@ import { useState } from 'react';
 import Hud from './components/Hud';
 import MapView from './components/MapView';
 import { MisionesTab, QuestDetail } from './components/Quests';
-import { questById } from './game/data';
+import RadarTab from './components/Radar';
+import { useRadar } from './game/useRadar';
+import { buscarQuest } from './game/store';
 import { usePlayerStore, useSettingsStore } from './game/store';
 
-type Tab = 'inicio' | 'mapa' | 'misiones' | 'jugador';
+type Tab = 'inicio' | 'mapa' | 'misiones' | 'radar' | 'jugador';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '🏠' },
   { id: 'mapa', label: 'Mapa', icon: '🗺️' },
   { id: 'misiones', label: 'Misiones', icon: '📜' },
+  { id: 'radar', label: 'Radar', icon: '🛰️' },
   { id: 'jugador', label: 'Jugador', icon: '🧢' },
 ];
 
 function InicioTab({ onAbrir }: { onAbrir: (id: string) => void }) {
   const jugador = usePlayerStore((s) => s.jugador);
-  const mision = jugador.misionActivaId ? questById.get(jugador.misionActivaId) : undefined;
+  const mision = jugador.misionActivaId ? buscarQuest(jugador.misionActivaId) : undefined;
   return (
     <div className="space-y-3">
       <div className="font-pixel text-xs tracking-widest text-ruta-muted">RUTA URBANA · PWA</div>
@@ -76,6 +79,7 @@ function JugadorTab() {
 export default function App() {
   const [tab, setTab] = useState<Tab>('mapa');
   const [misionAbierta, setMisionAbierta] = useState<string | null>(null);
+  useRadar();
   const esMapa = tab === 'mapa' && !misionAbierta;
 
   return (
@@ -95,6 +99,10 @@ export default function App() {
           <div className="mx-auto max-w-md p-4">
             <MisionesTab onAbrir={setMisionAbierta} />
           </div>
+        ) : tab === 'radar' ? (
+          <div className="mx-auto max-w-md p-4">
+            <RadarTab />
+          </div>
         ) : (
           <div className="mx-auto max-w-md p-4">
             <JugadorTab />
@@ -102,7 +110,7 @@ export default function App() {
         )}
       </div>
       {!misionAbierta && (
-        <nav className="grid grid-cols-4 border-t-2 border-ruta-line bg-ruta-panel">
+        <nav className="grid grid-cols-5 border-t-2 border-ruta-line bg-ruta-panel">
           {TABS.map((t) => (
             <button
               key={t.id}

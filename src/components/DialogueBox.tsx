@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { dialogueById } from '../game/data';
+import { buscarDialogo } from '../game/store';
 import { sonar } from '../game/audio';
 import { usePlayerStore, useSettingsStore } from '../game/store';
 import type { DialogueNode } from '../game/types';
@@ -16,14 +16,14 @@ export default function DialogueBox({
   const [actualId, setActualId] = useState(nodoInicial.id);
   const ganarXP = usePlayerStore((s) => s.ganarXP);
   const sonido = useSettingsStore((s) => s.sonido);
-  const nodo = dialogueById.get(actualId) ?? nodoInicial;
+  const nodo = buscarDialogo(actualId) ?? nodoInicial;
 
   const elegir = (opcionId: string) => {
     const opcion = nodo.opciones.find((o) => o.id === opcionId);
     if (!opcion) return;
     if (opcion.efecto?.xp) ganarXP(opcion.efecto.xp, opcion.efecto.atributos);
     sonar('check', sonido);
-    if (opcion.siguienteId && dialogueById.has(opcion.siguienteId)) {
+    if (opcion.siguienteId && buscarDialogo(opcion.siguienteId)) {
       setActualId(opcion.siguienteId);
     } else {
       onTerminar(nodo);

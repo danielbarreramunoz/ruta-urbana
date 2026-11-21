@@ -34,4 +34,13 @@ Verificación antes de declarar listo: `npx tsc -b` limpio + `npm run build` OK 
 - Fase 0-2: ✅ Mapa + niebla + joystick + misiones data-driven + HUD + diálogos + rescate.
 - Fase 3: ✅ Proximidad a misión activa (radio 50–80 m) con vibración + banner + notificación opcional (solo app oculta, con permiso) + modo discreto para sensibles + cooldown 10 min. Sin app abierta NO hay geofencing en web: no prometerlo.
 - Fase 4: ✅ Sprites pixel-art SVG propios (avatar, 3 retratos NPC, pines, iconos), sonidos retro Web Audio muteables, `GUIA-CALLE.md` con protocolo de 3 salidas. Pendiente: dogfooding en calle por el usuario.
-- Fase 5: CONGELADA hasta validar MVP en solitario.
+- Fase 5: ✅ (base jugable sin backend) Sincronización de perfil last-write-wins, catálogo comunitario, generador local de misiones, radar con ubicación difusa + intercambio presencial de 4 dígitos + fantasmas en el mapa.
+
+### Backend local (opcional, solo para multijugador real)
+
+```bash
+supabase start      # Postgres + PostGIS local (requiere Docker y Supabase CLI)
+# aplica supabase/migrations/0001_fase5.sql y copia .env.example → .env
+```
+
+Sin `.env` la app es 100% funcional en solitario. Entre dispositivos con backend en la misma WiFi, usar la IP LAN en vez de 127.0.0.1. RLS actual = abierto (solo desarrollo local).
