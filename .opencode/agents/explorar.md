@@ -1,0 +1,1 @@
+../../.harness/.opencode/agents/explorar.md
