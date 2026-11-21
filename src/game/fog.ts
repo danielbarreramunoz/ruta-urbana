@@ -121,3 +121,24 @@ export function fogFeatureCollection(nearby: string[], visited: Set<string> | st
     })),
   };
 }
+
+/* ── Recompensa por explorar ───────────────────────────────────────────────── */
+
+/** XP por celda nueva revelada. */
+export const XP_POR_CELDA = 2;
+/** Cada cuántas celdas nuevas cae un bonus. */
+export const CELDAS_POR_HITO = 25;
+/** Bonus por hito de exploración. */
+export const XP_POR_HITO = 15;
+
+/**
+ * XP ganada al revelar `nuevas` celdas, partiendo de un total acumulado.
+ * Los hitos se cuentan sobre el total monotónico, así que un tramo nunca
+ * paga dos veces el mismo bonus.
+ */
+export function xpPorCeldas(nuevas: number, totalPrevio: number): number {
+  if (nuevas <= 0) return 0;
+  const hitosAntes = Math.floor(Math.max(0, totalPrevio) / CELDAS_POR_HITO);
+  const hitosDespues = Math.floor((Math.max(0, totalPrevio) + nuevas) / CELDAS_POR_HITO);
+  return nuevas * XP_POR_CELDA + Math.max(0, hitosDespues - hitosAntes) * XP_POR_HITO;
+}

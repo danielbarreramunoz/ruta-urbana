@@ -1,0 +1,388 @@
+[
+  {
+    "id": "pelo-corto",
+    "nombre": "Pelo corto",
+    "slot": "pelo",
+    "estilo": "corto",
+    "color": "#3A2A22",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "pelo-rapado",
+    "nombre": "Rapado",
+    "slot": "pelo",
+    "estilo": "rapado",
+    "color": "#2A2A2A",
+    "precio": 60,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "pelo-largo",
+    "nombre": "Melena",
+    "slot": "pelo",
+    "estilo": "largo",
+    "color": "#4A3020",
+    "precio": 90,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "pelo-caneloso",
+    "nombre": "Canas",
+    "slot": "pelo",
+    "estilo": "corto",
+    "color": "#D8D8D8",
+    "precio": 120,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "pelo-afro",
+    "nombre": "Afro",
+    "slot": "pelo",
+    "estilo": "afro",
+    "color": "#241A14",
+    "precio": 140,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "pelo-tinte-verde",
+    "nombre": "Tinte verde",
+    "slot": "pelo",
+    "estilo": "corto",
+    "color": "#7CFC5A",
+    "precio": 160,
+    "desbloqueo": { "tipo": "nivel", "nivel": 4 }
+  },
+  {
+    "id": "capucha-dorada",
+    "nombre": "Capucha dorada",
+    "slot": "gorro",
+    "estilo": "capucha",
+    "color": "#FFD23F",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "gorro-lana",
+    "nombre": "Gorro de lana",
+    "slot": "gorro",
+    "estilo": "lana",
+    "color": "#2E8C6A",
+    "precio": 90,
+    "desbloqueo": { "tipo": "mision", "questId": "compra-farmacia" }
+  },
+  {
+    "id": "gorro-jockey",
+    "nombre": "Gorro jockey",
+    "slot": "gorro",
+    "estilo": "jockey",
+    "color": "#C23B3B",
+    "precio": 120,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "gorro-pompom",
+    "nombre": "Gorro con pompón",
+    "slot": "gorro",
+    "estilo": "pompom",
+    "color": "#6AA8FF",
+    "precio": 130,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "lentes-lectura",
+    "nombre": "Lentes de lectura",
+    "slot": "lentes",
+    "estilo": "lectura",
+    "color": "#9AA0B2",
+    "precio": 50,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "lentes-redondos",
+    "nombre": "Lentes redondos",
+    "slot": "lentes",
+    "estilo": "redondos",
+    "color": "#C99A16",
+    "precio": 70,
+    "desbloqueo": { "tipo": "mision", "questId": "renovar-cedula" }
+  },
+  {
+    "id": "lentes-sol",
+    "nombre": "Lentes de sol",
+    "slot": "lentes",
+    "estilo": "sol",
+    "color": "#12121A",
+    "precio": 110,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "bigote",
+    "nombre": "Bigote",
+    "slot": "barba",
+    "estilo": "bigote",
+    "color": "#3A2A22",
+    "precio": 40,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "barba-corta",
+    "nombre": "Barba corta",
+    "slot": "barba",
+    "estilo": "corta",
+    "color": "#2A1E18",
+    "precio": 70,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "barba-larga",
+    "nombre": "Barba larga",
+    "slot": "barba",
+    "estilo": "larga",
+    "color": "#4A3020",
+    "precio": 110,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "aros-plata",
+    "nombre": "Aros de plata",
+    "slot": "aros",
+    "estilo": "aro",
+    "color": "#C0C0C8",
+    "precio": 50,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "aros-oro",
+    "nombre": "Aros de oro",
+    "slot": "aros",
+    "estilo": "aro",
+    "color": "#FFD23F",
+    "precio": 90,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "polera-base",
+    "nombre": "Polera básica",
+    "slot": "ropa",
+    "estilo": "polera",
+    "color": "#6A6AD4",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "polera-deportiva",
+    "nombre": "Polera deportiva",
+    "slot": "ropa",
+    "estilo": "polera",
+    "color": "#FF5D5D",
+    "precio": 100,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "camisa",
+    "nombre": "Camisa",
+    "slot": "ropa",
+    "estilo": "camisa",
+    "color": "#F2E8C9",
+    "precio": 130,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "chaqueta-cuero",
+    "nombre": "Chaqueta de cuero",
+    "slot": "ropa",
+    "estilo": "cuero",
+    "color": "#1A1A24",
+    "precio": 150,
+    "desbloqueo": { "tipo": "mision", "questId": "primer-dia-laboral" }
+  },
+  {
+    "id": "parka",
+    "nombre": "Parka",
+    "slot": "ropa",
+    "estilo": "parka",
+    "color": "#2E8C4A",
+    "precio": 180,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "jeans",
+    "nombre": "Jeans",
+    "slot": "pantalon",
+    "estilo": "jeans",
+    "color": "#2B3450",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "cargo",
+    "nombre": "Pantalón cargo",
+    "slot": "pantalon",
+    "estilo": "cargo",
+    "color": "#4A5A3A",
+    "precio": 80,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "buzo",
+    "nombre": "Buzo",
+    "slot": "pantalon",
+    "estilo": "buzo",
+    "color": "#3A3A4D",
+    "precio": 110,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "botas",
+    "nombre": "Botas",
+    "slot": "zapatos",
+    "estilo": "botas",
+    "color": "#7A5230",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "zapatillas",
+    "nombre": "Zapatillas",
+    "slot": "zapatos",
+    "estilo": "zapatillas",
+    "color": "#F2E8C9",
+    "precio": 90,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "zapatos-formales",
+    "nombre": "Zapatos formales",
+    "slot": "zapatos",
+    "estilo": "formales",
+    "color": "#1A1A24",
+    "precio": 130,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "tatuaje-brazo",
+    "nombre": "Tatuaje de brazo",
+    "slot": "tatuaje",
+    "estilo": "brazo",
+    "color": "#3D6FC4",
+    "precio": 100,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 }
+  },
+  {
+    "id": "tatuaje-cuello",
+    "nombre": "Tatuaje de cuello",
+    "slot": "tatuaje",
+    "estilo": "cuello",
+    "color": "#FF5D5D",
+    "precio": 120,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 }
+  },
+  {
+    "id": "mochila-roja",
+    "nombre": "Mochila roja",
+    "slot": "mochila",
+    "estilo": "mochila",
+    "color": "#C23B3B",
+    "precio": 0,
+    "desbloqueo": { "tipo": "libre" }
+  },
+  {
+    "id": "mochila-negra",
+    "nombre": "Mochila negra",
+    "slot": "mochila",
+    "estilo": "mochila",
+    "color": "#1A1A24",
+    "precio": 100,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 }
+  },
+  {
+    "id": "mochila-oro",
+    "nombre": "Mochila dorada",
+    "slot": "mochila",
+    "estilo": "mochila",
+    "color": "#FFD23F",
+    "precio": 200,
+    "desbloqueo": { "tipo": "nivel", "nivel": 4 }
+  },
+  {
+    "id": "pelo-colita",
+    "nombre": "Colita",
+    "slot": "pelo",
+    "estilo": "colita",
+    "color": "#3A2A22",
+    "precio": 90,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
+  },
+  {
+    "id": "pelo-flequillo",
+    "nombre": "Flequillo",
+    "slot": "pelo",
+    "estilo": "flequillo",
+    "color": "#6B4A3A",
+    "precio": 100,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
+  },
+  {
+    "id": "blusa",
+    "nombre": "Blusa",
+    "slot": "ropa",
+    "estilo": "blusa",
+    "color": "#F2E8C9",
+    "precio": 120,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "f"
+  },
+  {
+    "id": "polera-entallada",
+    "nombre": "Polera entallada",
+    "slot": "ropa",
+    "estilo": "entallada",
+    "color": "#FF9DB0",
+    "precio": 80,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
+  },
+  {
+    "id": "vestido",
+    "nombre": "Vestido",
+    "slot": "ropa",
+    "estilo": "vestido",
+    "color": "#C24A6A",
+    "precio": 180,
+    "desbloqueo": { "tipo": "nivel", "nivel": 3 },
+    "genero": "f"
+  },
+  {
+    "id": "falda",
+    "nombre": "Falda",
+    "slot": "pantalon",
+    "estilo": "falda",
+    "color": "#3A3A6A",
+    "precio": 100,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
+  },
+  {
+    "id": "botas-altas",
+    "nombre": "Botas altas",
+    "slot": "zapatos",
+    "estilo": "altas",
+    "color": "#4A2A1A",
+    "precio": 130,
+    "desbloqueo": { "tipo": "nivel", "nivel": 2 },
+    "genero": "f"
+  },
+  {
+    "id": "aros-perla",
+    "nombre": "Aros de perla",
+    "slot": "aros",
+    "estilo": "perla",
+    "color": "#F2E8C9",
+    "precio": 80,
+    "desbloqueo": { "tipo": "nivel", "nivel": 1 },
+    "genero": "f"
+  }
+]

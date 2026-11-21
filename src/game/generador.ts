@@ -74,8 +74,8 @@ export function generarMisionSecundaria(b: BriefMision, autor = 'yo'): { quest: 
         completado: false,
       },
     ],
-    recompensa: { xp: 60, atributos: { supervivencia: 1 } },
-    recompensaRescate: { xp: 25 },
+    recompensa: { xp: 60, paga: 80, atributos: { supervivencia: 1 } },
+    recompensaRescate: { xp: 25, paga: 30 },
     ubicaciones: [{ id: locId, nombre: b.lugar, latitud: b.lat, longitud: b.lng, radioM: 60, sensible: b.categoria === 'salud' }],
   };
 

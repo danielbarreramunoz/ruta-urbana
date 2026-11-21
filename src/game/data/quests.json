@@ -54,8 +54,8 @@
         "completado": false
       }
     ],
-    "recompensa": { "xp": 100, "atributos": { "burocracia": 1 } },
-    "recompensaRescate": { "xp": 40 },
+    "recompensa": { "xp": 100, "paga": 320, "premio": "lentes-redondos", "atributos": { "burocracia": 1 } },
+    "recompensaRescate": { "xp": 40, "paga": 120 },
     "ubicaciones": [
       {
         "id": "registro-huerfanos",
@@ -113,8 +113,8 @@
         "completado": false
       }
     ],
-    "recompensa": { "xp": 80, "atributos": { "supervivencia": 1 } },
-    "recompensaRescate": { "xp": 30 },
+    "recompensa": { "xp": 80, "paga": 240, "premio": "gorro-lana", "atributos": { "supervivencia": 1 } },
+    "recompensaRescate": { "xp": 30, "paga": 90 },
     "ubicaciones": [
       {
         "id": "farmacia-turno",
@@ -181,8 +181,8 @@
         "completado": false
       }
     ],
-    "recompensa": { "xp": 120, "atributos": { "carisma": 1 } },
-    "recompensaRescate": { "xp": 50 },
+    "recompensa": { "xp": 120, "paga": 400, "premio": "chaqueta-cuero", "atributos": { "carisma": 1 } },
+    "recompensaRescate": { "xp": 50, "paga": 150 },
     "ubicaciones": [
       {
         "id": "oficina-nueva",

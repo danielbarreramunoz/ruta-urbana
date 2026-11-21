@@ -26,16 +26,27 @@ export type AtributoKey = keyof Atributos;
 /** Alias en inglés para código compartido (mismo objeto, otro nombre). */
 export type PlayerStats = Atributos;
 
+/** Cuerpo con el que se dibuja el avatar. */
+export type Sexo = 'f' | 'm';
+
 /** Estado global de progresión del jugador. */
 export interface Jugador {
   id: string;
   nombre: string;
+  /** Cuerpo del avatar (no bloquea prendas, solo cambia la silueta). */
+  sexo: Sexo;
   nivel: number;
   /** XP acumulada en el nivel actual. */
   xp: number;
   /** XP necesaria para subir de nivel (curva definida en store, no en JSON). */
   xpParaSiguienteNivel: number;
   atributos: Atributos;
+  /** Fichas del juego. Se ganan con misiones/exploración y se gastan en cosméticos. */
+  fichas: number;
+  /** IDs de cosméticos comprados o ganados (ver `CosmeticItem.id`). */
+  cosmeticos: string[];
+  /** Cosmético puesto por slot. Un slot ausente = sin prenda. */
+  equipado: Equipamiento;
   /** IDs de misiones (ver `Quest.id`). */
   misionActivaId: string | null;
   misionesCompletadas: string[];
@@ -73,8 +84,52 @@ export interface QuestStep {
 /** Recompensa al completar misión o paso. */
 export interface QuestReward {
   xp: number;
+  /** Paga en fichas (economía del juego). */
+  paga?: number;
+  /** Cosmético entregado además de la paga (ver `CosmeticItem.id`). */
+  premio?: string;
   atributos?: Partial<Atributos>;
 }
+
+/* ────────────────────────────── COSMÉTICOS (avatar) ────────────────────────────── */
+
+/** Ranuras del avatar. Una prenda ocupa exactamente una ranura. */
+export type CosmeticSlot =
+  | 'pelo'
+  | 'barba'
+  | 'gorro'
+  | 'lentes'
+  | 'aros'
+  | 'ropa'
+  | 'pantalon'
+  | 'zapatos'
+  | 'tatuaje'
+  | 'mochila';
+
+/** Cuándo se habilita la compra de un cosmético. */
+export type CosmeticUnlock =
+  | { tipo: 'libre' }
+  | { tipo: 'nivel'; nivel: number }
+  | { tipo: 'mision'; questId: string };
+
+/** Entrada del catálogo `src/game/data/cosmetics.json`. */
+export interface CosmeticItem {
+  id: string;
+  nombre: string;
+  slot: CosmeticSlot;
+  /** Forma base que dibuja `sprites.tsx` (varias prendas pueden compartir forma). */
+  estilo: string;
+  /** Color principal en hex; si falta, usa el del estilo. */
+  color?: string;
+  /** Precio en fichas. `0` = prenda base, disponible sin comprar. */
+  precio: number;
+  desbloqueo: CosmeticUnlock;
+  /** A quién está pensada la prenda; no restringe el uso. */
+  genero?: 'u' | 'f' | 'm';
+}
+
+/** Prenda puesta por ranura. */
+export type Equipamiento = Partial<Record<CosmeticSlot, string>>;
 
 /** Punto de interés físico de una misión (Fase 1 geofencing, Fase 3). */
 export interface QuestLocation {

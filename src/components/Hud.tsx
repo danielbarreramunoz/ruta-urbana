@@ -1,5 +1,5 @@
 import { usePlayerStore } from '../game/store';
-import { Sprite, attrSvg } from './sprites';
+import { Sprite, attrSvg, uiSvg } from './sprites';
 
 const ATRIBUTOS = [
   { key: 'carisma', label: 'CAR' },
@@ -37,6 +37,12 @@ export default function Hud() {
                 className={`h-2.5 flex-1 border ${i < llenos ? 'border-ruta-xp bg-ruta-xp' : 'border-ruta-line bg-ruta-void'}`}
               />
             ))}
+          </div>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <Sprite svg={uiSvg('coins')} size={11} />
+            <span className="font-pixel text-[10px] font-bold text-ruta-gold">{jugador.fichas}</span>
+            <span className="font-pixel text-[9px] text-ruta-muted">fichas</span>
+            <span className="ml-auto font-pixel text-[9px] text-ruta-muted">{jugador.cosmeticos.length} cosméticos</span>
           </div>
         </div>
       </div>

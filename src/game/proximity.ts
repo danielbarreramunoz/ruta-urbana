@@ -36,3 +36,20 @@ export function debeAlertar(ultimaAlertaMs: number | undefined, ahoraMs: number,
   if (ultimaAlertaMs === undefined) return true;
   return ahoraMs - ultimaAlertaMs >= cooldownMs;
 }
+
+/** Distancia en metros a una ubicación de misión. */
+export function distanciaA(pos: LatLng, loc: QuestLocation): number {
+  return haversineM(pos, { lat: loc.latitud, lng: loc.longitud });
+}
+
+/**
+ * Destino del próximo paso `ir` pendiente (el que se dibuja en el mapa).
+ * Si la misión no tiene ubicación o el paso no apunta a ninguna, `undefined`.
+ */
+export function proximoDestino(quest: Quest | undefined, pasosCompletados: string[]): QuestLocation | undefined {
+  if (!quest) return undefined;
+  const paso = quest.pasos.find(
+    (p) => p.tipo === 'ir' && !!p.destinoId && !pasosCompletados.includes(p.id),
+  );
+  return paso ? quest.ubicaciones.find((u) => u.id === paso.destinoId) : undefined;
+}

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { questById } from './data';
-import { cellsAround } from './fog';
-import type { Atributos, DialogueNode, Jugador, Quest, QuestStatus } from './types';
+import { EQUIPADO_INICIAL, alternarPrenda, estaDesbloqueado, esPropio } from './cosmetics';
+import { cosmeticById, questById } from './data';
+import { cellsAround, xpPorCeldas } from './fog';
+import type { Atributos, CosmeticSlot, DialogueNode, Jugador, Quest, QuestStatus, Sexo } from './types';
 
 const XP_BASE = 100;
 export const xpParaNivel = (nivel: number) => Math.round(XP_BASE * Math.pow(1.35, nivel - 1));
@@ -10,15 +11,39 @@ export const xpParaNivel = (nivel: number) => Math.round(XP_BASE * Math.pow(1.35
 const jugadorInicial = (nombre = 'Viajero'): Jugador => ({
   id: 'jugador-local',
   nombre,
+  sexo: 'm',
   nivel: 1,
   xp: 0,
   xpParaSiguienteNivel: xpParaNivel(1),
   atributos: { carisma: 1, valentia: 1, burocracia: 1, supervivencia: 1 },
+  fichas: 0,
+  cosmeticos: [],
+  equipado: { ...EQUIPADO_INICIAL },
   misionActivaId: null,
   misionesCompletadas: [],
   misionesFallidas: [],
   updatedAt: new Date().toISOString(),
 });
+
+/**
+ * Rellena campos nuevos sobre datos persistidos viejos (localStorage).
+ * Sin esto, `fichas`/`cosmeticos` llegarían `undefined` y romperían la UI.
+ */
+function normalizarJugador(guardado: (Partial<Jugador> & { monedas?: number }) | undefined): Jugador {
+  const base = jugadorInicial(guardado?.nombre);
+  return {
+    ...base,
+    ...guardado,
+    atributos: { ...base.atributos, ...(guardado?.atributos ?? {}) },
+    sexo: guardado?.sexo === 'f' ? 'f' : 'm',
+    // Compatibilidad: la primera versión guardó la moneda como `monedas`.
+    fichas: guardado?.fichas ?? guardado?.monedas ?? 0,
+    cosmeticos: guardado?.cosmeticos ?? [],
+    equipado: { ...EQUIPADO_INICIAL, ...(guardado?.equipado ?? {}) },
+    misionesCompletadas: guardado?.misionesCompletadas ?? [],
+    misionesFallidas: guardado?.misionesFallidas ?? [],
+  };
+}
 
 function mezclar(base: Atributos, extra?: Partial<Atributos>): Atributos {
   if (!extra) return base;
@@ -30,9 +55,26 @@ function mezclar(base: Atributos, extra?: Partial<Atributos>): Atributos {
   };
 }
 
+/** Resultado de intentar comprar en la tienda. */
+export type ResultadoCompra = 'ok' | 'ya-tienes' | 'sin-fichas' | 'bloqueado' | 'no-existe';
+
 interface PlayerState {
   jugador: Jugador;
   ganarXP: (cantidad: number, atributos?: Partial<Atributos>) => void;
+  /** Suma (o resta con signo negativo) fichas. Nunca baja de 0. */
+  ganarFichas: (cantidad: number) => void;
+  /** Entrega un cosmético sin cobrar (premio de misión). */
+  otorgarCosmetico: (id: string) => void;
+  comprarCosmetico: (id: string) => ResultadoCompra;
+  /** Pone o quita la prenda (toggle) si es propia. */
+  equiparCosmetico: (id: string) => void;
+  desequiparSlot: (slot: CosmeticSlot) => void;
+  /** Cambia el nombre del jugador (recorta a 24 caracteres). */
+  renombrar: (nombre: string) => void;
+  /** Cambia la silueta del avatar. */
+  cambiarSexo: (sexo: Sexo) => void;
+  /** Borra el progreso de misiones del jugador, sin tocar nivel/fichas/cosméticos. */
+  limpiarMisiones: () => void;
   fijarMisionActiva: (questId: string | null) => void;
   registrarMision: (questId: string, exito: boolean) => void;
   /** Reemplaza el progreso local por uno remoto más nuevo (last-write-wins). */
@@ -51,28 +93,108 @@ interface PlayerState {
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       jugador: jugadorInicial(),
-      ganarXP: (cantidad, atributos) =>
+      ganarXP: (cantidad, atributos) => {
+        const antes = get().jugador;
+        let { xp, nivel, xpParaSiguienteNivel } = antes;
+        xp += cantidad;
+        while (xp >= xpParaSiguienteNivel) {
+          xp -= xpParaSiguienteNivel;
+          nivel += 1;
+          xpParaSiguienteNivel = xpParaNivel(nivel);
+        }
+        set({
+          jugador: {
+            ...antes,
+            xp,
+            nivel,
+            xpParaSiguienteNivel,
+            atributos: { ...antes.atributos, ...mezclar(antes.atributos, atributos) },
+            updatedAt: new Date().toISOString(),
+          },
+        });
+        // Aviso efímero para la animación de XP / subida de nivel.
+        useFxStore.getState().anunciarXp(cantidad, nivel > antes.nivel ? nivel : null);
+      },
+      ganarFichas: (cantidad) =>
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            fichas: Math.max(0, s.jugador.fichas + cantidad),
+            updatedAt: new Date().toISOString(),
+          },
+        })),
+      otorgarCosmetico: (id) =>
         set((s) => {
-          let { xp, nivel, xpParaSiguienteNivel } = s.jugador;
-          xp += cantidad;
-          while (xp >= xpParaSiguienteNivel) {
-            xp -= xpParaSiguienteNivel;
-            nivel += 1;
-            xpParaSiguienteNivel = xpParaNivel(nivel);
-          }
+          if (!cosmeticById.has(id) || s.jugador.cosmeticos.includes(id)) return s;
           return {
             jugador: {
               ...s.jugador,
-              xp,
-              nivel,
-              xpParaSiguienteNivel,
-              atributos: { ...s.jugador.atributos, ...mezclar(s.jugador.atributos, atributos) },
+              cosmeticos: [...s.jugador.cosmeticos, id],
               updatedAt: new Date().toISOString(),
             },
           };
         }),
+      comprarCosmetico: (id) => {
+        const item = cosmeticById.get(id);
+        const { jugador } = get();
+        if (!item) return 'no-existe';
+        if (esPropio(jugador, item)) return 'ya-tienes';
+        if (!estaDesbloqueado(jugador, item)) return 'bloqueado';
+        if (jugador.fichas < item.precio) return 'sin-fichas';
+        set({
+          jugador: {
+            ...jugador,
+            fichas: jugador.fichas - item.precio,
+            cosmeticos: [...jugador.cosmeticos, item.id],
+            updatedAt: new Date().toISOString(),
+          },
+        });
+        return 'ok';
+      },
+      equiparCosmetico: (id) => {
+        const item = cosmeticById.get(id);
+        if (!item) return;
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            equipado: alternarPrenda(s.jugador, item),
+            updatedAt: new Date().toISOString(),
+          },
+        }));
+      },
+      desequiparSlot: (slot) =>
+        set((s) => {
+          if (!s.jugador.equipado[slot]) return s;
+          const equipado = { ...s.jugador.equipado };
+          delete equipado[slot];
+          return {
+            jugador: { ...s.jugador, equipado, updatedAt: new Date().toISOString() },
+          };
+        }),
+      renombrar: (nombre) =>
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            nombre: nombre.trim().slice(0, 24) || 'Viajero',
+            updatedAt: new Date().toISOString(),
+          },
+        })),
+      cambiarSexo: (sexo) =>
+        set((s) => ({
+          jugador: { ...s.jugador, sexo, updatedAt: new Date().toISOString() },
+        })),
+      limpiarMisiones: () =>
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            misionActivaId: null,
+            misionesCompletadas: [],
+            misionesFallidas: [],
+            updatedAt: new Date().toISOString(),
+          },
+        })),
       fijarMisionActiva: (questId) =>
         set((s) => ({ jugador: { ...s.jugador, misionActivaId: questId, updatedAt: new Date().toISOString() } })),
       registrarMision: (questId, exito) =>
@@ -101,9 +223,61 @@ export const usePlayerStore = create<PlayerState>()(
         })),
       reiniciar: (nombre) => set({ jugador: jugadorInicial(nombre) }),
     }),
-    { name: 'ruta-urbana/jugador', storage: createJSONStorage(() => localStorage) },
+    {
+      name: 'ruta-urbana/jugador',
+      version: 4,
+      storage: createJSONStorage(() => localStorage),
+      // v4: sexo del avatar. v3: fichas + cosméticos. Rellena datos viejos sin perder progreso.
+      migrate: (persisted) => {
+        const previo = (persisted ?? {}) as Partial<PlayerState>;
+        return { ...previo, jugador: normalizarJugador(previo.jugador) } as PlayerState;
+      },
+    },
   ),
 );
+
+/* ── Efectos de XP y subida de nivel (efímeros, NO persistidos) ────────────── */
+
+export interface AvisoXp {
+  id: number;
+  xp: number;
+  /** Nivel alcanzado si esta ganancia subió de nivel. */
+  subioANivel: number | null;
+}
+
+interface FxState {
+  avisoXp: AvisoXp | null;
+  /** Nivel que se está celebrando (overlay centrado), o null. */
+  nivel: number | null;
+  anunciarXp: (xp: number, subioANivel: number | null) => void;
+  cerrarAvisoXp: () => void;
+  cerrarNivel: () => void;
+}
+
+let fxSeq = 0;
+let acumuladoXp = 0;
+let ultimoAnuncioMs = 0;
+
+export const useFxStore = create<FxState>()((set) => ({
+  avisoXp: null,
+  nivel: null,
+  anunciarXp: (xp, subioANivel) => {
+    // Agrupa ráfagas (pasos que revelan celdas) en un solo "+X XP".
+    const ahora = Date.now();
+    acumuladoXp = ahora - ultimoAnuncioMs < 1200 ? acumuladoXp + xp : xp;
+    ultimoAnuncioMs = ahora;
+    set((s) => ({
+      avisoXp: { id: ++fxSeq, xp: acumuladoXp, subioANivel },
+      nivel: subioANivel ?? s.nivel,
+    }));
+  },
+  cerrarAvisoXp: () => set({ avisoXp: null }),
+  cerrarNivel: () => {
+    acumuladoXp = 0;
+    ultimoAnuncioMs = 0;
+    set({ nivel: null, avisoXp: null });
+  },
+}));
 
 export interface QuestProgress {
   estado: QuestStatus;
@@ -136,6 +310,8 @@ interface QuestState {
   completarPaso: (questId: string, stepId: string) => void;
   completarMision: (questId: string) => void;
   registrarRescate: (questId: string) => void;
+  /** Borra el progreso de todas las misiones (para pruebas). */
+  reiniciarMisiones: () => void;
   resetearTodo: () => void;
 }
 
@@ -197,7 +373,10 @@ export const useQuestStore = create<QuestState>()(
           if (!quest) return s;
           if (!quest.pasos.every((p) => actual.pasosCompletados.includes(p.id))) return s;
           if (actual.estado === 'completada') return s;
-          usePlayerStore.getState().ganarXP(quest.recompensa.xp, quest.recompensa.atributos);
+          const r = quest.recompensa;
+          usePlayerStore.getState().ganarXP(r.xp, r.atributos);
+          if (r.paga) usePlayerStore.getState().ganarFichas(r.paga);
+          if (r.premio) usePlayerStore.getState().otorgarCosmetico(r.premio);
           usePlayerStore.getState().registrarMision(questId, true);
           return {
             progresos: { ...s.progresos, [questId]: { ...actual, estado: 'completada', updatedAt: new Date().toISOString() } },
@@ -207,13 +386,20 @@ export const useQuestStore = create<QuestState>()(
         set((s) => {
           const quest = questById.get(questId);
           const actual = s.progresos[questId] ?? nuevoProgreso();
-          if (!quest?.recompensaRescate || actual.estado === 'completada') return s;
-          usePlayerStore.getState().ganarXP(quest.recompensaRescate.xp, quest.recompensaRescate.atributos);
+          if (!quest?.recompensaRescate || actual.estado !== 'activa') return s;
+          const r = quest.recompensaRescate;
+          usePlayerStore.getState().ganarXP(r.xp, r.atributos);
+          if (r.paga) usePlayerStore.getState().ganarFichas(r.paga);
+          if (r.premio) usePlayerStore.getState().otorgarCosmetico(r.premio);
           usePlayerStore.getState().registrarMision(questId, false);
           return {
             progresos: { ...s.progresos, [questId]: { ...actual, estado: 'reprogramada', updatedAt: new Date().toISOString() } },
           };
         }),
+      reiniciarMisiones: () => {
+        set({ progresos: {}, customs: [] });
+        usePlayerStore.getState().limpiarMisiones();
+      },
       resetearTodo: () => set({ progresos: {}, customs: [] }),
     }),
     {
@@ -337,6 +523,8 @@ interface ExplorationState {
   mode: PositionMode;
   mock: { lat: number; lng: number };
   visited: string[];
+  /** Total histórico de celdas reveladas (no se recorta): base de la XP. */
+  celdasReveladas: number;
   lastRevealAt: string | null;
   setMode: (mode: PositionMode) => void;
   moveMock: (dxM: number, dyM: number) => void;
@@ -351,6 +539,7 @@ export const useExplorationStore = create<ExplorationState>()(
       mode: 'joystick',
       mock: DEFAULT_ORIGIN,
       visited: [],
+      celdasReveladas: 0,
       lastRevealAt: null,
       setMode: (mode) => set({ mode }),
       moveMock: (dxM, dyM) =>
@@ -367,17 +556,36 @@ export const useExplorationStore = create<ExplorationState>()(
           const fresh = cellsAround(p, radiusM).filter((k) => !known.has(k));
           if (fresh.length === 0) return s;
           const visited = [...s.visited, ...fresh];
+          const total = s.celdasReveladas + fresh.length;
+          const xp = xpPorCeldas(fresh.length, s.celdasReveladas);
+          if (xp > 0) usePlayerStore.getState().ganarXP(xp);
           return {
             visited: visited.length > MAX_VISITED ? visited.slice(visited.length - MAX_VISITED) : visited,
+            celdasReveladas: total,
             lastRevealAt: new Date().toISOString(),
           };
         }),
-      resetFog: () => set({ visited: [], lastRevealAt: null }),
+      resetFog: () => set({ visited: [], celdasReveladas: 0, lastRevealAt: null }),
     }),
     {
       name: 'ruta-urbana/exploracion',
+      version: 2,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ mode: s.mode, mock: s.mock, visited: s.visited, lastRevealAt: s.lastRevealAt }),
+      partialize: (s) => ({
+        mode: s.mode,
+        mock: s.mock,
+        visited: s.visited,
+        celdasReveladas: s.celdasReveladas,
+        lastRevealAt: s.lastRevealAt,
+      }),
+      // v2: contador histórico de celdas (XP de exploración).
+      migrate: (persisted) => {
+        const previo = (persisted ?? {}) as Partial<ExplorationState> & { visited?: string[] };
+        return {
+          ...previo,
+          celdasReveladas: previo.celdasReveladas ?? previo.visited?.length ?? 0,
+        } as ExplorationState;
+      },
     },
   ),
 );
