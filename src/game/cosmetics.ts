@@ -5,15 +5,8 @@
 import { cosmeticos } from './data';
 import type { CosmeticItem, CosmeticSlot, Equipamiento, Jugador } from './types';
 
-/** Look inicial: el mismo joven con capucha, polera, jeans y botas del mapa. */
-export const EQUIPADO_INICIAL: Equipamiento = {
-  gorro: 'capucha-dorada',
-  pelo: 'pelo-corto',
-  ropa: 'polera-base',
-  pantalon: 'jeans',
-  zapatos: 'botas',
-  mochila: 'mochila-roja',
-};
+/** Look inicial: vacío. El jugador nuevo parte sin prendas y todo se compra. */
+export const EQUIPADO_INICIAL: Equipamiento = {};
 
 /** Orden de las pestañas del editor. */
 export const SLOT_ORDEN: { id: CosmeticSlot; label: string }[] = [
@@ -34,9 +27,9 @@ export function porSlot(slot: CosmeticSlot): CosmeticItem[] {
   return cosmeticos.filter((c) => c.slot === slot).sort((a, b) => a.precio - b.precio || a.nombre.localeCompare(b.nombre));
 }
 
-/** Las prendas base (precio 0) se consideran propias sin pasar por la tienda. */
+/** Solo es propia si se compró o se ganó (premio). Sin prendas gratis iniciales. */
 export function esPropio(jugador: Jugador, item: CosmeticItem): boolean {
-  return item.precio === 0 || jugador.cosmeticos.includes(item.id);
+  return jugador.cosmeticos.includes(item.id);
 }
 
 /** Cumple el requisito de nivel o de misión para poder comprarla. */

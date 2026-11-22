@@ -51,6 +51,78 @@ export function momentoDe(fecha: Date): MomentoDia {
   return momentoPorHora(fecha.getHours());
 }
 
+/** Origen usado cuando todavía no hay ubicación disponible (Santiago). */
+export const POSICION_SOL_DEFAULT = { lat: -33.4372, lng: -70.6506 };
+
+export interface HorasSolares {
+  amanecerMin: number;
+  atardecerMin: number;
+}
+
+/**
+ * Calcula amanecer/atardecer aproximados para fecha y coordenadas.
+ * Usa el huso horario local de `fecha`: el navegador aplica automáticamente
+ * cambios de hora de Chile y las excepciones regionales configuradas en el SO.
+ * Ecuaciones solares tipo NOAA, horizonte estándar de -0.833°.
+ */
+export function horasSolares(
+  fecha: Date,
+  posicion: { lat: number; lng: number } = POSICION_SOL_DEFAULT,
+): HorasSolares | null {
+  const { lat, lng } = posicion;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 66) return null;
+
+  const inicio = Date.UTC(fecha.getFullYear(), 0, 0);
+  const dia = Math.floor((Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()) - inicio) / 86_400_000);
+  const gamma = (2 * Math.PI / 365.2422) * (dia - 1);
+  const eqMin = 229.18 * (
+    0.000075 +
+    0.001868 * Math.cos(gamma) -
+    0.032077 * Math.sin(gamma) -
+    0.014615 * Math.cos(2 * gamma) -
+    0.040849 * Math.sin(2 * gamma)
+  );
+  const decl = 0.006918 -
+    0.399912 * Math.cos(gamma) +
+    0.070257 * Math.sin(gamma) -
+    0.006758 * Math.cos(2 * gamma) +
+    0.000907 * Math.sin(2 * gamma) -
+    0.002697 * Math.cos(3 * gamma) +
+    0.00148 * Math.sin(3 * gamma);
+  const latRad = (lat * Math.PI) / 180;
+  const cosHora = (
+    Math.cos((90.833 * Math.PI) / 180) -
+    Math.sin(latRad) * Math.sin(decl)
+  ) / (Math.cos(latRad) * Math.cos(decl));
+  if (cosHora < -1 || cosHora > 1) return null;
+
+  const anguloHora = (Math.acos(cosHora) * 180) / Math.PI;
+  // getTimezoneOffset = UTC - hora local; así se respetan DST y husos regionales.
+  const mediodiaLocal = 720 - 4 * lng - eqMin - fecha.getTimezoneOffset();
+  return {
+    amanecerMin: mediodiaLocal - 4 * anguloHora,
+    atardecerMin: mediodiaLocal + 4 * anguloHora,
+  };
+}
+
+/** Momento visual según salida/puesta de sol real aproximada en la ubicación. */
+export function momentoSolar(
+  fecha: Date,
+  posicion: { lat: number; lng: number } = POSICION_SOL_DEFAULT,
+): MomentoDia {
+  const horas = horasSolares(fecha, posicion);
+  if (!horas) return momentoDe(fecha);
+  const minuto = fecha.getHours() * 60 + fecha.getMinutes();
+  const antesAmanecer = horas.amanecerMin - 30;
+  const inicioAtardecer = horas.atardecerMin - 30;
+  const finAtardecer = horas.atardecerMin + 35;
+
+  if (minuto < antesAmanecer) return 'madrugada';
+  if (minuto >= finAtardecer) return 'noche';
+  if (minuto >= inicioAtardecer) return 'atardecer';
+  return 'dia';
+}
+
 /**
  * Estación por mes. Por defecto hemisferio sur (Santiago): verano dic–feb,
  * otoño mar–may, invierno jun–ago, primavera sep–nov.

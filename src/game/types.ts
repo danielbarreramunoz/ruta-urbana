@@ -49,6 +49,8 @@ export interface Jugador {
   equipado: Equipamiento;
   /** IDs de misiones (ver `Quest.id`). */
   misionActivaId: string | null;
+  /** Secundarias activas en paralelo (máximo 2, ver `MAX_SECUNDARIAS`). */
+  secundariasActivas: string[];
   misionesCompletadas: string[];
   misionesFallidas: string[];
   updatedAt: string;
@@ -121,7 +123,7 @@ export interface CosmeticItem {
   estilo: string;
   /** Color principal en hex; si falta, usa el del estilo. */
   color?: string;
-  /** Precio en fichas. `0` = prenda base, disponible sin comprar. */
+  /** Precio en fichas. Todo se compra con fichas ganadas; sin prendas iniciales. */
   precio: number;
   desbloqueo: CosmeticUnlock;
   /** A quién está pensada la prenda; no restringe el uso. */
@@ -151,6 +153,18 @@ export interface Quest {
   categoria: QuestCategory;
   estado: QuestStatus;
   nivelMinimo: number;
+  /** Si true, al activar pide la dirección al jugador y el pin se pone ahí. */
+  pideDireccion?: boolean;
+  /** Edad mínima sugerida (filtra misiones principales según el perfil). */
+  edadMin?: number;
+  /** Situaciones laborales donde la misión tiene sentido. */
+  situaciones?: Situacion[];
+  /** Intereses que la misión cubre (si el perfil tiene intereses). */
+  intereses?: Interes[];
+  /** Id del lugar de OSM que originó la misión (badge de estado en el mapa). */
+  poiId?: string;
+  /** Clave de la guía de preparación (por tipo de lugar); si falta, usa la categoría. */
+  preparacionClave?: string;
   /** Requisitos previos: items y/o misiones. */
   requisitos: {
     items?: string[];
@@ -167,9 +181,23 @@ export interface Quest {
 export type Mision = Quest;
 export type PasoMision = QuestStep;
 
-/** Objeto llevable / requisito previo (ej. "carnet vencido", "dinero/tarjeta"). */
-export interface InventoryItem {
+/** Pregunta de preparación previa ("¿llevas la receta?"). */
+export interface PreparacionPregunta {
   id: string;
+  texto: string;
+}
+
+/** Guía de preparación por tipo de misión (`src/game/data/preparacion.json`). */
+export interface PreparacionPlantilla {
+  intro: string;
+  preguntas: PreparacionPregunta[];
+  /** Frases listas para decir en el mesón. */
+  guion: string[];
+  consejo?: string;
+}
+
+/** Objeto llevable / requisito previo (ej. "carnet vencido", "dinero/tarjeta"). */
+export interface InventoryItem {  id: string;
   nombre: string;
   descripcion: string;
   /** Nombre del icono pixel-art (Fase 4), ej. "id-card", "coins". */
@@ -209,6 +237,34 @@ export interface DialogueNode {
 }
 
 export type NodoDialogo = DialogueNode;
+
+/** Destino puesto por el jugador (buscador de direcciones) sobre una misión. */
+export interface DestinoCustom {
+  nombre: string;
+  latitud: number;
+  longitud: number;
+}
+
+/* ───────────────────────────── PERFIL INICIAL ───────────────────────────── */
+
+/** Rango de edad (nunca fecha de nacimiento). */
+export type RangoEdad = 'menor' | '18-24' | '25-34' | '35-49' | '50+';
+
+/** Situación laboral declarada; adapta qué misiones principales aparecen. */
+export type Situacion = 'estudiando' | 'buscando-empleo' | 'trabajando' | 'cesante' | 'jubilado';
+
+/** Categorías de interés: priorizan lugares de interés en el mapa. */
+export type Interes = 'salud' | 'tramites' | 'dinero' | 'trabajo' | 'hogar';
+
+export interface Perfil {
+  completado: boolean;
+  /** Omitido a propósito: no se agregan misiones principales automáticamente. */
+  omitido: boolean;
+  edad: RangoEdad | null;
+  situacion: Situacion | null;
+  intereses: Interes[];
+  updatedAt: string;
+}
 
 /** Punto GPS ya descubierto por el jugador (motor de niebla, Fase 1). */
 export interface ExploredPoint {

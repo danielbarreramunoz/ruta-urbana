@@ -1,4 +1,5 @@
 import type { DialogueNode, Quest, QuestCategory } from './types';
+import type { Poi } from './pois';
 
 export interface BriefMision {
   titulo: string;
@@ -6,6 +7,8 @@ export interface BriefMision {
   categoria: QuestCategory;
   lat: number;
   lng: number;
+  /** Si true, el punto es exacto (POI de OSM) y no se desplaza. */
+  exacto?: boolean;
 }
 
 const slug = (s: string) =>
@@ -23,11 +26,16 @@ const INTRO_NPC: Record<QuestCategory, { npcId: string; npcNombre: string; retra
  * Generador local de misiones secundarias ($0, offline, sin IA externa).
  * Rellena la plantilla canónica: preparación → ir → diálogo → acción.
  * El resultado pasa las mismas validaciones que el catálogo oficial.
+ *
+ * El punto queda a ~150 m al noreste de la posición dada: caminata corta
+ * real en vez de "llegada instantánea" sobre el propio jugador.
  */
 export function generarMisionSecundaria(b: BriefMision, autor = 'yo'): { quest: Quest; dialogos: DialogueNode[] } {
   const id = `custom-${slug(b.titulo)}-${Date.now().toString(36)}`;
   const npc = INTRO_NPC[b.categoria];
   const locId = `${id}-lugar`;
+  const lat = b.exacto ? b.lat : b.lat + 0.0012;
+  const lng = b.exacto ? b.lng : b.lng + 0.0009;
 
   const quest: Quest = {
     id,
@@ -76,7 +84,7 @@ export function generarMisionSecundaria(b: BriefMision, autor = 'yo'): { quest: 
     ],
     recompensa: { xp: 60, paga: 80, atributos: { supervivencia: 1 } },
     recompensaRescate: { xp: 25, paga: 30 },
-    ubicaciones: [{ id: locId, nombre: b.lugar, latitud: b.lat, longitud: b.lng, radioM: 60, sensible: b.categoria === 'salud' }],
+    ubicaciones: [{ id: locId, nombre: b.lugar, latitud: lat, longitud: lng, radioM: 60, sensible: b.categoria === 'salud' }],
   };
 
   const dialogos: DialogueNode[] = [
@@ -102,4 +110,31 @@ export function generarMisionSecundaria(b: BriefMision, autor = 'yo'): { quest: 
   ];
 
   return { quest, dialogos };
+}
+
+/** Categoría de misión según el tipo de lugar de OSM. */
+const CATEGORIA_POI: Record<Poi['categoria'], QuestCategory> = {
+  farmacia: 'salud',
+  salud: 'salud',
+  banco: 'tramite',
+  'registro-civil': 'tramite',
+  municipalidad: 'tramite',
+  oficina: 'tramite',
+};
+
+/** Misión desde un lugar de interés: el pin queda exactamente donde está el POI. */
+export function generarMisionDesdePoi(poi: Poi): { quest: Quest; dialogos: DialogueNode[] } {
+  const categoria = CATEGORIA_POI[poi.categoria];
+  const r = generarMisionSecundaria({
+    titulo: `${poi.nombre}`,
+    lugar: poi.nombre,
+    categoria,
+    lat: poi.lat,
+    lng: poi.lng,
+    exacto: true,
+  });
+  // Vincula la misión al lugar para el badge de estado en el mapa.
+  r.quest.poiId = poi.id;
+  r.quest.preparacionClave = poi.categoria;
+  return r;
 }

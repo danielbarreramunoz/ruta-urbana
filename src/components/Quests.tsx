@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DialogueBox from './DialogueBox';
 import Hud from './Hud';
 import { Sprite, uiSvg } from './sprites';
-import { cosmeticById, itemById, quests } from '../game/data';
+import { cosmeticById, itemById, preparaciones } from '../game/data';
 import { publicarMision } from '../game/backend';
 import { generarMisionSecundaria, type BriefMision } from '../game/generador';
 import { sonar } from '../game/audio';
+import BuscadorDireccion from './BuscadorDireccion';
+import { formatoDistancia } from '../game/cercanas';
 import { usePlayerPosition } from '../game/geo';
 import { distanciaA } from '../game/proximity';
-import { buscarDialogo, buscarQuest, PROGRESO_VACIO, usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
+import { buscarDialogo, buscarQuest, listaMisiones, PROGRESO_VACIO, questConDestino, usePlayerStore, useQuestStore, useSettingsStore } from '../game/store';
 import type { QuestCategory, QuestReward, QuestStep } from '../game/types';
 
 const CATEGORIA: Record<string, { icono: string; label: string }> = {
@@ -61,19 +63,29 @@ function ChipsRecompensa({ recompensa }: { recompensa: QuestReward }) {
   );
 }
 
-export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
+export function MisionesTab({ onAbrir, crearAbierto, onCrearConsumido }: { onAbrir: (id: string) => void; crearAbierto?: boolean; onCrearConsumido?: () => void }) {
   const activar = useQuestStore((s) => s.activar);
-  const customs = useQuestStore((s) => s.customs);
   const progresos = useQuestStore((s) => s.progresos);
   const agregarCustom = useQuestStore((s) => s.agregarCustom);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
+  const secundariasActivas = usePlayerStore((s) => s.jugador.secundariasActivas);
+  const activasIds = [...new Set([...(misionActivaId ? [misionActivaId] : []), ...secundariasActivas])];
   const sonido = useSettingsStore((s) => s.sonido);
   const { efectiva } = usePlayerPosition();
-  const [creando, setCreando] = useState(false);
+  const [creando, setCreando] = useState(!!crearAbierto);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
   const [lugar, setLugar] = useState('');
   const [categoria, setCategoria] = useState<QuestCategory>('secundaria');
-  const todas = [...quests, ...customs.map((c) => c.quest)];
+  // Llegada desde el mapa ("Crear misión aquí"): abre el generador una vez.
+  useEffect(() => {
+    if (crearAbierto) {
+      setCreando(true);
+      onCrearConsumido?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crearAbierto]);
+  const todas = listaMisiones();
 
   const crear = () => {
     if (titulo.trim().length < 4 || lugar.trim().length < 3) return;
@@ -87,6 +99,16 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
     onAbrir(quest.id);
   };
 
+  /** Activa y avisa si ya hay 2 secundarias en curso. */  const activarConAviso = (id: string) => {
+    const r = activar(id);
+    if (r === 'limite') {
+      setAviso('Ya tienes 2 secundarias activas · termina o cancela una primero');
+      sonar('blip', sonido);
+    } else {
+      setAviso(null);
+    }
+    return r;
+  };
   const hechas = todas.filter((q) => progresos[q.id]?.estado === 'completada').length;
 
   return (
@@ -103,6 +125,12 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
 
       <Hud />
 
+      {aviso && (
+        <div className="px-frame border-ruta-valentia px-2 py-1.5 font-pixel text-[10px] leading-4 text-ruta-valentia" role="status">
+          {aviso}
+        </div>
+      )}
+
       <button
         onClick={() => setCreando((v) => !v)}
         className={`px-btn w-full py-2.5 font-pixel text-[11px] font-bold ${creando ? 'px-btn--on' : 'text-ruta-burocracia'}`}
@@ -114,7 +142,7 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
       {creando && (
         <div className="px-frame space-y-2 p-3">
           <div className="font-pixel text-[10px] leading-4 text-ruta-muted">
-            Se ancla en tu posición actual y se valida igual que el catálogo oficial.
+            Se ancla ~150 m de tu posición actual (caminata corta) y se valida igual que el catálogo oficial.
           </div>
           <input
             value={titulo}
@@ -149,6 +177,19 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
         </div>
       )}
 
+      {todas.length === 0 && (
+        <div className="px-frame border-dashed p-3">
+          <div className="font-pixel text-sm font-bold text-ruta-parchment">Sin misiones principales</div>
+          <p className="mt-1 font-pixel text-[10px] leading-4 text-ruta-muted">
+            Omitiste el cuestionario inicial, así que no se activan misiones automáticas.
+            Entra al mapa y toca un pin para elegir una principal, o crea una secundaria aquí.
+          </p>
+          <button onClick={() => setCreando(true)} className="px-btn mt-2 w-full py-2 font-pixel text-[10px] font-bold text-ruta-burocracia">
+            + CREAR MISIÓN SECUNDARIA
+          </button>
+        </div>
+      )}
+
       {todas.map((q) => {
         const prog = progresos[q.id];
         const estado = prog?.estado ?? q.estado;
@@ -156,7 +197,7 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
         const hecha = estado === 'completada';
         const pasosHechos = prog?.pasosCompletados.length ?? 0;
         const pct = Math.round((pasosHechos / q.pasos.length) * 100);
-        const esActiva = misionActivaId === q.id;
+        const esActiva = activasIds.includes(q.id);
         const cat = CATEGORIA[q.categoria];
         return (
           <div key={q.id} className={`px-frame ${esActiva ? 'px-frame--gold' : ''}`}>
@@ -195,16 +236,42 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
 
               {!hecha && !esActiva && (
                 <button
-                  onClick={() => { sonar('blip', sonido); activar(q.id); onAbrir(q.id); }}
+                  onClick={() => {
+                    sonar('blip', sonido);
+                    // Dirección o preparación pendiente: primero se resuelve en el detalle.
+                    const faltaPrep = !prog?.preparada && !!preparaciones[q.categoria];
+                    if ((q.pideDireccion && !prog?.destinoCustom) || faltaPrep) onAbrir(q.id);
+                    else {
+                      activarConAviso(q.id);
+                      onAbrir(q.id);
+                    }
+                  }}
                   className="px-btn px-btn--xp mt-2.5 w-full py-2 font-pixel text-[11px] font-bold"
                 >
-                  {estado === 'reprogramada' ? '↻ REINTENTAR MISIÓN' : '▶ ACTIVAR MISIÓN'}
+                  {q.pideDireccion && !prog?.destinoCustom
+                    ? '📍 ELEGIR DIRECCIÓN'
+                    : !prog?.preparada && preparaciones[q.categoria]
+                      ? '🧭 PREPARARME'
+                      : estado === 'reprogramada' ? '↻ REINTENTAR MISIÓN' : '▶ ACTIVAR MISIÓN'}
                 </button>
               )}
               {!hecha && esActiva && (
-                <button onClick={() => onAbrir(q.id)} className="px-btn px-btn--on mt-2.5 w-full py-2 font-pixel text-[11px] font-bold">
-                  CONTINUAR →
-                </button>
+                <div className="mt-2.5 flex gap-2">
+                  <button onClick={() => onAbrir(q.id)} className="px-btn px-btn--on min-w-0 flex-1 py-2 font-pixel text-[11px] font-bold">
+                    CONTINUAR →
+                  </button>
+                  <button
+                    onClick={() => {
+                      useQuestStore.getState().cancelarMision(q.id);
+                      sonar('blip', sonido);
+                    }}
+                    title="Cancelar misión"
+                    aria-label="Cancelar misión"
+                    className="px-btn flex-none px-2.5 py-2 font-pixel text-[10px] text-ruta-muted"
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -215,10 +282,16 @@ export function MisionesTab({ onAbrir }: { onAbrir: (id: string) => void }) {
 }
 
 export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: () => void }) {
-  const quest = buscarQuest(questId);
+  const questBase = buscarQuest(questId);
   const progresos = useQuestStore((s) => s.progresos);
   const progreso = progresos[questId] ?? PROGRESO_VACIO;
+  // Destino del jugador aplicado: el paso `ir`, los pines y el radio usan esto.
+  const quest = questBase ? questConDestino(questBase, progreso) : undefined;
   const activar = useQuestStore((s) => s.activar);
+  const cancelarMision = useQuestStore((s) => s.cancelarMision);
+  const fijarDestino = useQuestStore((s) => s.fijarDestino);
+  const togglePreparacion = useQuestStore((s) => s.togglePreparacion);
+  const marcarPreparada = useQuestStore((s) => s.marcarPreparada);
   const toggleCheck = useQuestStore((s) => s.toggleCheck);
   const completarPaso = useQuestStore((s) => s.completarPaso);
   const completarMision = useQuestStore((s) => s.completarMision);
@@ -227,6 +300,12 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const { efectiva } = usePlayerPosition();
   const [dialogoAbierto, setDialogoAbierto] = useState<string | null>(null);
   const [pubMsg, setPubMsg] = useState<string | null>(null);
+  const [verGuia, setVerGuia] = useState(false);
+  const [confirmarCancelar, setConfirmarCancelar] = useState(false);
+  const [avisoActivacion, setAvisoActivacion] = useState<string | null>(null);
+  const [mostrarBuscador, setMostrarBuscador] = useState(
+    () => !!questBase?.pideDireccion && !progreso.destinoCustom,
+  );
   const sonido = useSettingsStore((s) => s.sonido);
   const customs = useQuestStore((s) => s.customs);
 
@@ -246,6 +325,22 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
   const todosPasos = quest.pasos.every((p) => progreso.pasosCompletados.includes(p.id));
   const cat = CATEGORIA[quest.categoria];
   const checksListos = (quest.requisitos.items ?? []).every((i) => progreso.checks[i]);
+
+  /** Destino vigente (del catálogo o puesto por el jugador). */
+  const pasoIr = quest.pasos.find((p) => p.tipo === 'ir' && p.destinoId);
+  const destinoLoc = pasoIr?.destinoId
+    ? quest.ubicaciones.find((u) => u.id === pasoIr.destinoId)
+    : quest.ubicaciones[0];
+  const distDestino = destinoLoc ? Math.round(distanciaA(efectiva, destinoLoc)) : null;
+  const faltaDireccion = !!quest.pideDireccion && !progreso.destinoCustom;
+
+  /** Guía de preparación por tipo de lugar o categoría + respuestas del jugador. */
+  const plantilla = preparaciones[quest.preparacionClave ?? ''] ?? preparaciones[quest.categoria];
+  const preparacion = progreso.preparacion ?? {};
+  const preparada = !!progreso.preparada;
+  const mostrarPreparacion = !hecha && !!plantilla && (!preparada || verGuia);
+  /** Listo para activar: preparación cerrada (y dirección, si la misión la pide). */
+  const puedeActivar = !faltaDireccion && (preparada || !plantilla || progreso.estado === 'activa');
 
   /** Botón del paso: "Ya llegué" solo se habilita dentro del radio del destino. */
   const botonPaso = (paso: QuestStep) => {
@@ -305,11 +400,44 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
           </div>
 
           {!esActiva && !hecha && (
+            puedeActivar ? (
+              <button
+                onClick={() => {
+                  sonar('blip', sonido);
+                  const r = activar(quest.id);
+                  if (r === 'limite') setAvisoActivacion('Ya tienes 2 secundarias activas · termina o cancela una primero');
+                  else setAvisoActivacion(null);
+                }}
+                className="px-btn px-btn--xp mt-2.5 w-full py-2.5 font-pixel text-xs font-bold"
+              >
+                {progreso.estado === 'reprogramada' ? '↻ REINTENTAR' : '▶ ACTIVAR MISIÓN'}
+              </button>
+            ) : (
+              <p className="mt-2.5 border border-ruta-line px-2 py-1.5 text-center font-pixel text-[10px] leading-4 text-ruta-gold">
+                {faltaDireccion ? 'Elige tu dirección para activar ↓' : 'Completa la preparación para activar ↓'}
+              </p>
+            )
+          )}
+          {avisoActivacion && (
+            <div className="mt-2 border border-ruta-valentia px-2 py-1.5 font-pixel text-[10px] leading-4 text-ruta-valentia" role="status">
+              {avisoActivacion}
+            </div>
+          )}
+          {esActiva && !hecha && (
             <button
-              onClick={() => { sonar('blip', sonido); activar(quest.id); }}
-              className="px-btn px-btn--xp mt-2.5 w-full py-2.5 font-pixel text-xs font-bold"
+              onClick={() => {
+                if (!confirmarCancelar) {
+                  setConfirmarCancelar(true);
+                  return;
+                }
+                cancelarMision(quest.id);
+                setConfirmarCancelar(false);
+                sonar('blip', sonido);
+                onVolver();
+              }}
+              className={`px-btn mt-2 w-full py-2 font-pixel text-[10px] font-bold ${confirmarCancelar ? 'px-btn--danger' : 'text-ruta-muted'}`}
             >
-              {progreso.estado === 'reprogramada' ? '↻ REINTENTAR' : '▶ ACTIVAR MISIÓN'}
+              {confirmarCancelar ? '¿CANCELAR? TOCA OTRA VEZ' : '✕ CANCELAR MISIÓN'}
             </button>
           )}
           {esCustom && (
@@ -319,6 +447,125 @@ export function QuestDetail({ questId, onVolver }: { questId: string; onVolver: 
           )}
           {pubMsg && <div className="mt-2 font-pixel text-[10px] text-ruta-muted">{pubMsg}</div>}
         </div>
+      </div>
+
+      {/* Preparación previa: ayuda a saber qué pedir sin ponerse nervioso/a */}
+      {mostrarPreparacion && plantilla && (
+        <div className="px-frame p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-pixel text-sm font-bold text-ruta-parchment">🧭 Prepárate</span>
+            <span className="font-pixel text-[9px] text-ruta-muted">
+              {plantilla.preguntas.filter((p) => preparacion[p.id]).length}/{plantilla.preguntas.length}
+            </span>
+          </div>
+          <p className="mt-1 font-pixel text-[10px] leading-4 text-ruta-muted">{plantilla.intro}</p>
+
+          <div className="mt-2 space-y-1">
+            {plantilla.preguntas.map((p) => {
+              const marcado = !!preparacion[p.id];
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => { sonar('blip', sonido); togglePreparacion(quest.id, p.id); }}
+                  aria-pressed={marcado}
+                  className={`flex w-full items-start gap-2 border px-2 py-1.5 text-left font-pixel text-[10px] leading-4 ${
+                    marcado ? 'border-ruta-xp text-ruta-parchment' : 'border-ruta-line text-ruta-muted'
+                  }`}
+                >
+                  <span className={`mt-[1px] flex h-4 w-4 flex-none items-center justify-center border ${marcado ? 'border-ruta-xp bg-ruta-xp text-ruta-void' : 'border-ruta-line'}`}>
+                    {marcado ? '✓' : ''}
+                  </span>
+                  <span>{p.texto}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 border-t border-ruta-line pt-2">
+            <div className="font-pixel text-[9px] tracking-widest text-ruta-gold">QUÉ DECIR</div>
+            <ul className="mt-1 space-y-1">
+              {plantilla.guion.map((g) => (
+                <li key={g} className="font-pixel text-[10px] leading-4 text-ruta-parchment">
+                  <span className="text-ruta-gold">›</span> {g}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {plantilla.consejo && (
+            <p className="mt-2 border-l-2 border-ruta-burocracia pl-2 font-pixel text-[10px] leading-4 text-ruta-muted">
+              {plantilla.consejo}
+            </p>
+          )}
+
+          <button
+            onClick={() => {
+              marcarPreparada(quest.id);
+              sonar('check', sonido);
+              if (faltaDireccion) setMostrarBuscador(true);
+            }}
+            className="px-btn px-btn--xp mt-2.5 w-full py-2.5 font-pixel text-xs font-bold"
+          >
+            ✅ ESTOY LISTO/A
+          </button>
+          <p className="mt-1 text-center font-pixel text-[9px] leading-3 text-ruta-muted">
+            Puedes volver a leer esto cuando quieras.
+          </p>
+        </div>
+      )}
+      {!mostrarPreparacion && !hecha && plantilla && preparada && (
+        <button
+          onClick={() => setVerGuia(true)}
+          className="px-btn w-full py-2 font-pixel text-[10px] text-ruta-burocracia"
+        >
+          🧭 REVISAR GUÍA DE PREPARACIÓN
+        </button>
+      )}
+
+      {/* Destino: se puede cambiar buscando una dirección en el mapa real */}
+      <div className="px-frame p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-pixel text-sm font-bold text-ruta-parchment">📍 Destino</span>
+          {distDestino != null && (
+            <span className="font-pixel text-[10px] font-bold text-ruta-xp">{formatoDistancia(distDestino)}</span>
+          )}
+        </div>
+        {destinoLoc ? (
+          <p className="mt-1 break-words font-pixel text-[11px] leading-4 text-ruta-muted">
+            {destinoLoc.nombre}
+            {progreso.destinoCustom && <span className="text-ruta-gold"> · tu punto</span>}
+            {` · radio ${destinoLoc.radioM} m`}
+          </p>
+        ) : faltaDireccion ? (
+          <p className="mt-1 font-pixel text-[11px] leading-4 text-ruta-gold">
+            Esta misión necesita tu dirección para activar.
+          </p>
+        ) : null}
+        {!mostrarBuscador ? (
+          <button
+            onClick={() => { sonar('blip', sonido); setMostrarBuscador(true); }}
+            className="px-btn mt-2 w-full py-2 font-pixel text-[10px] font-bold text-ruta-burocracia"
+          >
+            {destinoLoc ? 'CAMBIAR DIRECCIÓN' : 'BUSCAR DIRECCIÓN'}
+          </button>
+        ) : (
+          <div className="mt-2">
+            <BuscadorDireccion
+              pos={efectiva}
+              onElegir={(r) => {
+                fijarDestino(quest.id, { nombre: r.nombre, latitud: r.lat, longitud: r.lng });
+                setMostrarBuscador(false);
+                sonar('check', sonido);
+              }}
+            />
+            <button
+              onClick={() => setMostrarBuscador(false)}
+              className="px-btn mt-1.5 w-full py-1.5 font-pixel text-[10px] text-ruta-muted"
+            >
+              CANCELAR
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Checklist previo */}

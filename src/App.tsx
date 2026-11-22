@@ -1,14 +1,21 @@
-import { useState } from 'react';
-import AvatarEditor from './components/AvatarEditor';
+import { Suspense, lazy, useState } from 'react';
+import Cargando from './components/Cargando';
 import FxOverlay from './components/FxOverlay';
 import Hud from './components/Hud';
-import MapView from './components/MapView';
-import { MisionesTab, QuestDetail } from './components/Quests';
-import RadarTab from './components/Radar';
+import Onboarding from './components/Onboarding';
 import { Sprite, attrSvg, uiSvg } from './components/sprites';
+import { detenerMusica, iniciarMusica, musicaSonando, sonar } from './game/audio';
 import { useRadar } from './game/useRadar';
 import { buscarQuest } from './game/store';
-import { usePlayerStore, useQuestStore, useSettingsStore } from './game/store';
+import { usePlayerStore, useQuestStore, useSettingsStore, useExplorationStore, usePerfilStore, DEFAULT_ORIGIN } from './game/store';
+
+/* Lazy loading por pestaña: el mapa y cada sección bajan en su propio chunk
+ * y muestran "Cargando…" mientras tanto (ver `Cargando.tsx`). */
+const MapView = lazy(() => import('./components/MapView'));
+const PanelMisiones = lazy(() => import('./components/Quests').then((m) => ({ default: m.MisionesTab })));
+const DetalleMision = lazy(() => import('./components/Quests').then((m) => ({ default: m.QuestDetail })));
+const TabRadar = lazy(() => import('./components/Radar'));
+const EditorAvatar = lazy(() => import('./components/AvatarEditor'));
 
 type Tab = 'inicio' | 'mapa' | 'misiones' | 'radar' | 'jugador';
 
@@ -118,9 +125,32 @@ function JugadorTab() {
   const ganarFichas = usePlayerStore((s) => s.ganarFichas);
   const reiniciar = usePlayerStore((s) => s.reiniciar);
   const reiniciarMisiones = useQuestStore((s) => s.reiniciarMisiones);
+  const resetFog = useExplorationStore((s) => s.resetFog);
+  const centerMock = useExplorationStore((s) => s.centerMock);
+  const reiniciarPerfil = usePerfilStore((s) => s.reiniciar);
   const sonido = useSettingsStore((s) => s.sonido);
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
+  const musica = useSettingsStore((s) => s.musica);
+  const toggleMusica = useSettingsStore((s) => s.toggleMusica);
   const [confirmarReset, setConfirmarReset] = useState(false);
+  const [confirmarTodo, setConfirmarTodo] = useState(false);
+
+  /** Borra jugador + misiones + niebla y reubica el PAD (GPS si hay, si no origen). */
+  const reiniciarTodo = () => {
+    reiniciar();
+    reiniciarMisiones();
+    reiniciarPerfil();
+    resetFog();
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => centerMock({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => centerMock(DEFAULT_ORIGIN),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+      );
+    } else {
+      centerMock(DEFAULT_ORIGIN);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -130,7 +160,9 @@ function JugadorTab() {
       </div>
       <Hud />
 
-      <AvatarEditor />
+      <Suspense fallback={<Cargando texto="CARGANDO VESTUARIO…" />}>
+        <EditorAvatar />
+      </Suspense>
 
       <div className="px-frame p-3">
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -184,12 +216,44 @@ function JugadorTab() {
         <p className="mt-1.5 font-pixel text-[9px] leading-3 text-ruta-muted">
           Reiniciar misiones conserva nivel, fichas y cosméticos.
         </p>
+        <button
+          onClick={() => {
+            if (!confirmarTodo) {
+              setConfirmarTodo(true);
+            } else {
+              reiniciarTodo();
+              setConfirmarTodo(false);
+            }
+          }}
+          className={`px-btn mt-2 w-full py-2.5 font-pixel text-[10px] font-bold ${confirmarTodo ? 'px-btn--danger' : 'text-ruta-valentia'}`}
+        >
+          {confirmarTodo ? '¿BORRAR TODO? TOCA OTRA VEZ' : '↻ REINICIAR TODO'}
+        </button>
+        <p className="mt-1.5 font-pixel text-[9px] leading-3 text-ruta-muted">
+          Borra jugador, misiones y niebla, y reubica el PAD donde estés.
+        </p>
       </div>
 
       <div className="space-y-2">
         <button onClick={toggleSonido} className="px-btn flex w-full items-center justify-center gap-2 py-3 font-pixel text-xs text-ruta-parchment">
           <Sprite svg={uiSvg(sonido ? 'soundOn' : 'soundOff')} size={16} />
           {sonido ? 'SONIDO ACTIVADO' : 'SONIDO DESACTIVADO'}
+        </button>
+        <button
+          onClick={() => {
+            const pref = useSettingsStore.getState().musica;
+            if (musicaSonando()) {
+              detenerMusica();
+              if (pref) toggleMusica();
+            } else {
+              if (!pref) toggleMusica();
+              if (iniciarMusica()) sonar('check', useSettingsStore.getState().sonido);
+            }
+          }}
+          className="px-btn flex w-full items-center justify-center gap-2 py-3 font-pixel text-xs text-ruta-parchment"
+        >
+          <span aria-hidden className="font-pixel text-base leading-none">{musica ? '♫' : '♪'}</span>
+          {musica ? 'MÚSICA ACTIVADA' : 'MÚSICA DESACTIVADA'}
         </button>
         <button onClick={() => reiniciar()} className="px-btn w-full py-3 font-pixel text-xs text-ruta-muted">
           Reiniciar jugador (todo)
@@ -210,15 +274,32 @@ export default function App() {
     const h = window.location.hash.replace('#', '');
     return h.startsWith('mision/') ? h.slice('mision/'.length) : null;
   });
+  /** El mapa pidió "crear misión aquí": abre Misiones con el generador abierto. */
+  const [pedirCrear, setPedirCrear] = useState(false);
+  const perfil = usePerfilStore((s) => s.perfil);
+  const activasTotal = usePlayerStore(
+    (s) => (s.jugador.misionActivaId ? 1 : 0) + s.jugador.secundariasActivas.length,
+  );
   useRadar();
   const esMapa = tab === 'mapa' && !misionAbierta;
+
+  // Primer arranque: preguntas mínimas antes de jugar (se pueden omitir).
+  if (!perfil.completado) {
+    return (
+      <div className="flex h-dvh w-full flex-col bg-ruta-void">
+        <Onboarding onListo={() => setTab('mapa')} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-dvh w-full flex-col bg-ruta-void">
       <div className={`min-h-0 flex-1 ${esMapa ? 'relative' : 'overflow-y-auto'}`}>
         {misionAbierta ? (
           <div className="mx-auto max-w-md p-3">
-            <QuestDetail questId={misionAbierta} onVolver={() => setMisionAbierta(null)} />
+            <Suspense fallback={<Cargando texto="CARGANDO MISIÓN…" />}>
+              <DetalleMision questId={misionAbierta} onVolver={() => setMisionAbierta(null)} />
+            </Suspense>
           </div>
         ) : tab === 'inicio' ? (
           <div className="mx-auto max-w-md p-3">
@@ -228,14 +309,27 @@ export default function App() {
             />
           </div>
         ) : tab === 'mapa' ? (
-          <MapView onAbrirQuest={(id) => setMisionAbierta(id)} />
+          <Suspense fallback={<Cargando texto="CARGANDO MAPA…" />}>
+            <MapView
+              onAbrirQuest={(id) => setMisionAbierta(id)}
+              onCrearMision={() => { setPedirCrear(true); setTab('misiones'); }}
+            />
+          </Suspense>
         ) : tab === 'misiones' ? (
           <div className="mx-auto max-w-md p-3">
-            <MisionesTab onAbrir={setMisionAbierta} />
+            <Suspense fallback={<Cargando texto="CARGANDO MISIONES…" />}>
+              <PanelMisiones
+                onAbrir={setMisionAbierta}
+                crearAbierto={pedirCrear}
+                onCrearConsumido={() => setPedirCrear(false)}
+              />
+            </Suspense>
           </div>
         ) : tab === 'radar' ? (
           <div className="mx-auto max-w-md p-3">
-            <RadarTab />
+            <Suspense fallback={<Cargando texto="CARGANDO RADAR…" />}>
+              <TabRadar />
+            </Suspense>
           </div>
         ) : (
           <div className="mx-auto max-w-md p-3">
@@ -261,6 +355,11 @@ export default function App() {
                 <span className={`text-[17px] leading-6 ${activo ? 'drop-shadow-[0_0_6px_rgba(255,210,63,0.55)]' : 'opacity-70 grayscale-[0.35]'}`}>
                   {t.icono}
                 </span>
+                {t.id === 'misiones' && activasTotal > 0 && (
+                  <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center border border-ruta-gold bg-ruta-gold px-1 font-pixel text-[9px] font-bold text-ruta-void">
+                    {activasTotal}
+                  </span>
+                )}
                 {t.label}
               </button>
             );

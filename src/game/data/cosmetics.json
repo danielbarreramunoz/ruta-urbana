@@ -5,7 +5,7 @@
     "slot": "pelo",
     "estilo": "corto",
     "color": "#3A2A22",
-    "precio": 0,
+    "precio": 20,
     "desbloqueo": { "tipo": "libre" }
   },
   {
@@ -59,7 +59,7 @@
     "slot": "gorro",
     "estilo": "capucha",
     "color": "#FFD23F",
-    "precio": 0,
+    "precio": 30,
     "desbloqueo": { "tipo": "libre" }
   },
   {
@@ -167,7 +167,7 @@
     "slot": "ropa",
     "estilo": "polera",
     "color": "#6A6AD4",
-    "precio": 0,
+    "precio": 25,
     "desbloqueo": { "tipo": "libre" }
   },
   {
@@ -212,7 +212,7 @@
     "slot": "pantalon",
     "estilo": "jeans",
     "color": "#2B3450",
-    "precio": 0,
+    "precio": 30,
     "desbloqueo": { "tipo": "libre" }
   },
   {
@@ -239,7 +239,7 @@
     "slot": "zapatos",
     "estilo": "botas",
     "color": "#7A5230",
-    "precio": 0,
+    "precio": 30,
     "desbloqueo": { "tipo": "libre" }
   },
   {
@@ -284,7 +284,7 @@
     "slot": "mochila",
     "estilo": "mochila",
     "color": "#C23B3B",
-    "precio": 0,
+    "precio": 40,
     "desbloqueo": { "tipo": "libre" }
   },
   {

@@ -6,6 +6,8 @@
     "categoria": "tramite",
     "estado": "disponible",
     "nivelMinimo": 1,
+    "edadMin": 18,
+    "intereses": ["tramites"],
     "requisitos": {
       "items": ["carnet-vencido", "hora-agendada", "dinero-tarjeta"]
     },
@@ -73,6 +75,7 @@
     "categoria": "salud",
     "estado": "disponible",
     "nivelMinimo": 1,
+    "intereses": ["salud"],
     "requisitos": {
       "items": ["receta-medica", "dinero-tarjeta"]
     },
@@ -133,6 +136,10 @@
     "categoria": "trabajo",
     "estado": "disponible",
     "nivelMinimo": 1,
+    "pideDireccion": true,
+    "edadMin": 18,
+    "situaciones": ["buscando-empleo", "cesante", "estudiando"],
+    "intereses": ["trabajo"],
     "requisitos": {
       "items": ["cv-impreso", "carnet-vigente", "almuerzo"]
     },

@@ -1,11 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { cellKey, type LatLng } from './fog';
+import { cellKey, haversineM, type LatLng } from './fog';
 import { useExplorationStore } from './store';
 
 export type PermissionStatus = 'pendiente' | 'ok' | 'denegado' | 'no-fijado';
 
 /** Motivo del último fallo, para mostrar ayuda precisa en el celu (PWA por IP LAN = HTTP). */
 export type DetalleGps = null | 'inseguro' | 'sin-soporte' | 'permiso-denegado' | 'sin-fix';
+
+/** Precisión máxima aceptada para pintar niebla (un fix peor es salto, no caminata). */
+export const PRECISION_MAX_REVELAR_M = 80;
+/** Desplazamiento mínimo desde lo último revelado (frena la deriva con GPS quieto). */
+export const DESPLAZAMIENTO_MIN_REVELAR_M = 30;
+
+/** Decisión pura de revelado: testeable con node, sin DOM. */
+export function debeRevelar(
+  pos: LatLng,
+  opts: { mode: 'gps' | 'joystick'; accuracyM: number | null; ultimo: LatLng | null },
+): boolean {
+  // El PAD es deliberado: siempre pinta.
+  if (opts.mode === 'gps') {
+    if (opts.accuracyM != null && opts.accuracyM > PRECISION_MAX_REVELAR_M) return false;
+    if (opts.ultimo && haversineM(pos, opts.ultimo) < DESPLAZAMIENTO_MIN_REVELAR_M) return false;
+  }
+  return cellKey(pos) !== (opts.ultimo ? cellKey(opts.ultimo) : null);
+}
 
 /**
  * Posición efectiva del jugador en web:
@@ -25,8 +43,10 @@ export function usePlayerPosition() {
   const [detalle, setDetalle] = useState<DetalleGps>(null);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
-  const ultimaCelda = useRef<string | null>(null);
+  const ultimaRevelada = useRef<LatLng | null>(null);
   const huboFix = useRef(false);
+  /** Último fix aceptado: el sondeo grueso por red no pisa un GPS fino reciente. */
+  const mejorFix = useRef<{ acc: number; at: number } | null>(null);
 
   const seguro = typeof window === 'undefined' ? true : window.isSecureContext !== false;
 
@@ -47,8 +67,14 @@ export function usePlayerPosition() {
     }
     setPermiso((p) => (p === 'ok' ? p : 'pendiente'));
     let cancelado = false;
-    const fijar = (pos: GeolocationPosition) => {
+    const fijar = (pos: GeolocationPosition, esRed: boolean) => {
       if (cancelado) return;
+      const acc = pos.coords.accuracy ?? 9999;
+      // Si hay un fix fino reciente, el sondeo por red (±50-200 m y con saltos
+      // entre antenas) no mueve el avatar: era el que pintaba niebla lejana.
+      const previo = mejorFix.current;
+      if (esRed && previo && Date.now() - previo.at < 30000 && previo.acc <= 50 && acc > previo.acc) return;
+      mejorFix.current = { acc, at: Date.now() };
       huboFix.current = true;
       setPermiso('ok');
       setDetalle(null);
@@ -71,7 +97,7 @@ export function usePlayerPosition() {
     };
     // Watch fino (GPS). En Chrome Android el primer fix de alta precisión
     // suele tardar más de 20 s: timeout largo para no matarlo con code 3.
-    const watchId = navigator.geolocation.watchPosition(fijar, (e) => fallar(e, 'watch'), {
+    const watchId = navigator.geolocation.watchPosition((p) => fijar(p, false), (e) => fallar(e, 'watch'), {
       enableHighAccuracy: true,
       maximumAge: 10000,
       timeout: 60000,
@@ -84,7 +110,7 @@ export function usePlayerPosition() {
       if (cancelado) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          fijar(pos);
+          fijar(pos, true);
           pollTimer = window.setTimeout(pedirRed, 5000);
         },
         (e) => {
@@ -105,13 +131,13 @@ export function usePlayerPosition() {
 
   const efectiva: LatLng = mode === 'gps' && real ? real : mock;
 
+  // Revela niebla con guardias: sin fix malo ni deriva en el mismo punto.
   useEffect(() => {
-    const key = cellKey(efectiva);
-    if (key !== ultimaCelda.current) {
-      ultimaCelda.current = key;
+    if (debeRevelar(efectiva, { mode, accuracyM: precisionM, ultimo: ultimaRevelada.current })) {
+      ultimaRevelada.current = efectiva;
       reveal(efectiva);
     }
-  }, [efectiva, reveal]);
+  }, [efectiva, reveal, mode, precisionM]);
 
   return { efectiva, real, mock, mode, permiso, detalle, errorInfo, precisionM, seguro, reintentar: () => setIntento((i) => i + 1) };
 }

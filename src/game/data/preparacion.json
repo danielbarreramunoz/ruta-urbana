@@ -1,0 +1,95 @@
+{
+  "banco": {
+    "intro": "En el banco casi todo se resuelve con carnet y paciencia. Lleva claro qué vas a hacer para no trabarte en la fila.",
+    "preguntas": [
+      { "id": "carnet", "texto": "¿Llevas tu carnet de identidad?" },
+      { "id": "tramite", "texto": "¿Tienes claro qué vas a hacer (abrir cuenta, depositar, girar)?" },
+      { "id": "cuenta", "texto": "¿Sabes tu número de cuenta o producto, si ya eres cliente?" },
+      { "id": "monto", "texto": "¿Sabes el monto exacto o lo que necesitas consultar?" }
+    ],
+    "guion": [
+      "«Buenos días, vengo a…» (di el trámite exacto).",
+      "«¿Qué documentos necesita para esto?»",
+      "«¿Tiene algún costo o comisión?»",
+      "«¿Me entrega comprobante del depósito o giro?»"
+    ],
+    "consejo": "Nunca dictes tu clave en voz alta ni la escribas donde otros la vean. Si te piden datos raros, pide hablar con un ejecutivo."
+  },
+  "salud": {
+    "intro": "Antes de salir, ordena lo que vas a decir. No necesitas saberlo de memoria: puedes leer tus notas.",
+    "preguntas": [
+      { "id": "receta", "texto": "¿Llevas la receta o la indicación médica?" },
+      { "id": "claro", "texto": "¿Tienes claro qué medicamento o consulta necesitas?" },
+      { "id": "documentos", "texto": "¿Llevas carnet y medio de pago?" },
+      { "id": "dudas", "texto": "¿Anotaste tus dudas o síntomas en el celular o papel?" }
+    ],
+    "guion": [
+      "«Hola, vengo a consultar por…» (di lo que anotaste).",
+      "«¿Me puede explicar cómo se toma y cada cuánto?»",
+      "«¿Cuánto cuesta y hay algo más económico?»",
+      "«¿Necesito volver o esto basta?»"
+    ],
+    "consejo": "Si te pones nervioso/a, muestra tus notas o la receta. Nadie espera que lo recuerdes todo."
+  },
+  "tramite": {
+    "intro": "Los trámites se ganan en la fila: lleva los papeles listos y sabrás qué pedir.",
+    "preguntas": [
+      { "id": "carnet", "texto": "¿Llevas tu carnet de identidad vigente?" },
+      { "id": "hora", "texto": "¿Tienes hora agendada o número de atención?" },
+      { "id": "papeles", "texto": "¿Llevas el formulario o los documentos que te pidieron?" },
+      { "id": "copias", "texto": "¿Tienes copias o fotos de respaldo en el celular?" }
+    ],
+    "guion": [
+      "«Buenos días, vengo por…» (di el trámite exacto).",
+      "«¿Qué documentos necesita para completarlo?»",
+      "«¿Me entrega un comprobante o número de seguimiento?»",
+      "«Si falta algo, ¿puedo volver hoy mismo?»"
+    ],
+    "consejo": "Pide el comprobante antes de irte. Sin papel o número, no hay prueba del trámite."
+  },
+  "trabajo": {
+    "intro": "El primer día asusta menos si llegas con lo básico y una frase preparada.",
+    "preguntas": [
+      { "id": "direccion", "texto": "¿Tienes clara la dirección y cómo llegar?" },
+      { "id": "documentos", "texto": "¿Llevas carnet, CV y los papeles que te pidieron?" },
+      { "id": "contacto", "texto": "¿Tienes el nombre o teléfono de quien te recibe?" },
+      { "id": "colacion", "texto": "¿Llevas agua o algo para comer?" }
+    ],
+    "guion": [
+      "«Hola, soy… y vengo a mi primer día.»",
+      "«¿Con quién me presento?»",
+      "«¿Dónde dejo mis cosas y a qué hora es la colación?»",
+      "«¿Me puede mostrar dónde firmo o marco?»"
+    ],
+    "consejo": "Llega 15 minutos antes y avisa que eres nuevo/a: casi todos ayudan al que recién empieza."
+  },
+  "hogar": {
+    "intro": "Para el barrio, lo importante es ubicar el lugar y tener claro con quién hablar.",
+    "preguntas": [
+      { "id": "direccion", "texto": "¿Sabes la dirección o el punto de referencia?" },
+      { "id": "contacto", "texto": "¿Tienes un teléfono o nombre de contacto?" },
+      { "id": "documentos", "texto": "¿Llevas algún papel o foto del recado?" },
+      { "id": "horario", "texto": "¿Revisaste si está abierto a esta hora?" }
+    ],
+    "guion": [
+      "«Hola, vengo por…»",
+      "«¿Es aquí donde resuelven esto?»",
+      "«¿Me puede indicar a quién debo hablar?»"
+    ],
+    "consejo": "Si no sabes, pregunta en un almacén o a alguien del barrio: siempre es más rápido que adivinar."
+  },
+  "secundaria": {
+    "intro": "Una misión secundaria se disfruta más si sabes con qué empezar.",
+    "preguntas": [
+      { "id": "objetivo", "texto": "¿Tienes claro qué quieres lograr?" },
+      { "id": "direccion", "texto": "¿Sabes dónde queda el lugar?" },
+      { "id": "documentos", "texto": "¿Llevas algo necesario (carnet, dinero, notas)?" }
+    ],
+    "guion": [
+      "«Hola, vengo por…»",
+      "«¿Me puede ayudar con esto?»",
+      "«¿Qué necesito para completarlo?»"
+    ],
+    "consejo": "No hace falta improvisar: bastan dos frases y escuchar la respuesta."
+  }
+}

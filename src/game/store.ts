@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { EQUIPADO_INICIAL, alternarPrenda, estaDesbloqueado, esPropio } from './cosmetics';
+import { alternarPrenda, estaDesbloqueado, esPropio } from './cosmetics';
 import { cosmeticById, questById } from './data';
 import { cellsAround, xpPorCeldas } from './fog';
 import type { Ambiente, TemaMapa } from './ambiente';
-import type { Atributos, CosmeticSlot, DialogueNode, Jugador, Quest, QuestStatus, Sexo } from './types';
-
+import { PERFIL_VACIO, questApta, type Perfil } from './perfil';
+import type { Atributos, CosmeticSlot, DestinoCustom, DialogueNode, Jugador, Quest, QuestStatus, Sexo } from './types';
 const XP_BASE = 100;
 export const xpParaNivel = (nivel: number) => Math.round(XP_BASE * Math.pow(1.35, nivel - 1));
 
@@ -56,16 +56,21 @@ const jugadorInicial = (nombre = 'Viajero'): Jugador => ({
   atributos: { carisma: 1, valentia: 1, burocracia: 1, supervivencia: 1 },
   fichas: 0,
   cosmeticos: [],
-  equipado: { ...EQUIPADO_INICIAL },
+  equipado: {},
   misionActivaId: null,
+  secundariasActivas: [],
   misionesCompletadas: [],
   misionesFallidas: [],
   updatedAt: new Date().toISOString(),
 });
 
+/** Tope de misiones secundarias activas en paralelo. */
+export const MAX_SECUNDARIAS = 2;
+
 /**
  * Rellena campos nuevos sobre datos persistidos viejos (localStorage).
  * Sin esto, `fichas`/`cosmeticos` llegarían `undefined` y romperían la UI.
+ * v5: jugador nuevo parte vacío (sin prendas); se respeta lo guardado.
  */
 function normalizarJugador(guardado: (Partial<Jugador> & { monedas?: number }) | undefined): Jugador {
   const base = jugadorInicial(guardado?.nombre);
@@ -77,7 +82,9 @@ function normalizarJugador(guardado: (Partial<Jugador> & { monedas?: number }) |
     // Compatibilidad: la primera versión guardó la moneda como `monedas`.
     fichas: guardado?.fichas ?? guardado?.monedas ?? 0,
     cosmeticos: guardado?.cosmeticos ?? [],
-    equipado: { ...EQUIPADO_INICIAL, ...(guardado?.equipado ?? {}) },
+    equipado: { ...(guardado?.equipado ?? {}) },
+    misionActivaId: guardado?.misionActivaId ?? null,
+    secundariasActivas: guardado?.secundariasActivas ?? [],
     misionesCompletadas: guardado?.misionesCompletadas ?? [],
     misionesFallidas: guardado?.misionesFallidas ?? [],
   };
@@ -114,6 +121,9 @@ interface PlayerState {
   /** Borra el progreso de misiones del jugador, sin tocar nivel/fichas/cosméticos. */
   limpiarMisiones: () => void;
   fijarMisionActiva: (questId: string | null) => void;
+  /** Suma una secundaria activa (tope `MAX_SECUNDARIAS`). Devuelve false si no cabe. */
+  activarSecundaria: (questId: string) => boolean;
+  quitarSecundaria: (questId: string) => void;
   registrarMision: (questId: string, exito: boolean) => void;
   /** Reemplaza el progreso local por uno remoto más nuevo (last-write-wins). */
   aplicarPerfilRemoto: (p: {
@@ -235,11 +245,33 @@ export const usePlayerStore = create<PlayerState>()(
         })),
       fijarMisionActiva: (questId) =>
         set((s) => ({ jugador: { ...s.jugador, misionActivaId: questId, updatedAt: new Date().toISOString() } })),
+      activarSecundaria: (questId) => {
+        const jugador = get().jugador;
+        if (jugador.secundariasActivas.includes(questId)) return true;
+        if (jugador.secundariasActivas.length >= MAX_SECUNDARIAS) return false;
+        set({
+          jugador: {
+            ...jugador,
+            secundariasActivas: [...jugador.secundariasActivas, questId],
+            updatedAt: new Date().toISOString(),
+          },
+        });
+        return true;
+      },
+      quitarSecundaria: (questId) =>
+        set((s) => ({
+          jugador: {
+            ...s.jugador,
+            secundariasActivas: s.jugador.secundariasActivas.filter((id) => id !== questId),
+            updatedAt: new Date().toISOString(),
+          },
+        })),
       registrarMision: (questId, exito) =>
         set((s) => ({
           jugador: {
             ...s.jugador,
             misionActivaId: s.jugador.misionActivaId === questId ? null : s.jugador.misionActivaId,
+            secundariasActivas: s.jugador.secundariasActivas.filter((id) => id !== questId),
             misionesCompletadas: exito ? [...new Set([...s.jugador.misionesCompletadas, questId])] : s.jugador.misionesCompletadas,
             misionesFallidas: !exito ? [...new Set([...s.jugador.misionesFallidas, questId])] : s.jugador.misionesFallidas,
             updatedAt: new Date().toISOString(),
@@ -263,12 +295,18 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: 'ruta-urbana/jugador',
-      version: 4,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
-      // v4: sexo del avatar. v3: fichas + cosméticos. Rellena datos viejos sin perder progreso.
+      // v6: secundarias activas (1 principal + 2 secundarias). v5: jugador nuevo vacío.
+      // v4: sexo del avatar. v3: fichas + cosméticos.
+      // Migra guardados viejos: las prendas que traían equipadas se vuelven propias
+      // para no dejar el avatar inconsistente (equipado pero no poseído).
       migrate: (persisted) => {
         const previo = (persisted ?? {}) as Partial<PlayerState>;
-        return { ...previo, jugador: normalizarJugador(previo.jugador) } as PlayerState;
+        const j = normalizarJugador(previo.jugador);
+        const equipadas = Object.values(j.equipado).filter(Boolean) as string[];
+        const cosmeticos = [...new Set([...j.cosmeticos, ...equipadas])];
+        return { ...previo, jugador: { ...j, cosmeticos } } as PlayerState;
       },
     },
   ),
@@ -321,6 +359,12 @@ export interface QuestProgress {
   estado: QuestStatus;
   pasosCompletados: string[];
   checks: Record<string, boolean>;
+  /** Respuestas de la preparación previa (checkbox por pregunta). */
+  preparacion?: Record<string, boolean>;
+  /** El jugador completó la guía: recién ahí puede activar. */
+  preparada?: boolean;
+  /** Destino puesto por el jugador (buscador): reemplaza el paso `ir`. */
+  destinoCustom?: DestinoCustom;
   updatedAt: string;
 }
 
@@ -328,6 +372,9 @@ export const PROGRESO_VACIO: QuestProgress = {
   estado: 'disponible',
   pasosCompletados: [],
   checks: {},
+  preparacion: {},
+  preparada: false,
+  destinoCustom: undefined,
   updatedAt: '',
 };
 
@@ -335,19 +382,52 @@ const nuevoProgreso = (): QuestProgress => ({
   estado: 'disponible',
   pasosCompletados: [],
   checks: {},
+  preparacion: {},
+  preparada: false,
+  destinoCustom: undefined,
   updatedAt: new Date().toISOString(),
 });
+
+/**
+ * Misión con el destino del jugador aplicado: el paso `ir` apunta al punto
+ * buscado en vez del catálogo. Sin custom, devuelve la misión intacta.
+ */
+export function questConDestino(quest: Quest, progreso?: QuestProgress): Quest {
+  const d = progreso?.destinoCustom;
+  if (!d) return quest;
+  const pasoIr = quest.pasos.find((p) => p.tipo === 'ir' && p.destinoId);
+  if (!pasoIr?.destinoId) return quest;
+  const id = pasoIr.destinoId;
+  return {
+    ...quest,
+    ubicaciones: quest.ubicaciones.map((u) =>
+      u.id === id ? { ...u, nombre: d.nombre, latitud: d.latitud, longitud: d.longitud } : u,
+    ),
+  };
+}
+
+/** Resultado de intentar activar una misión. */
+export type ResultadoActivacion = 'ok' | 'limite';
 
 interface QuestState {
   progresos: Record<string, QuestProgress>;
   customs: { quest: Quest; dialogos: DialogueNode[] }[];
   progresoDe: (questId: string) => QuestProgress;
-  activar: (questId: string) => void;
+  /** Activa principal o secundaria; devuelve `limite` si ya hay 2 secundarias. */
+  activar: (questId: string) => ResultadoActivacion;
+  /** Vuelve a `disponible` conservando pasos, checks, preparación y destino. */
+  cancelarMision: (questId: string) => void;
   agregarCustom: (quest: Quest, dialogos: DialogueNode[]) => void;
   toggleCheck: (questId: string, itemId: string) => void;
   completarPaso: (questId: string, stepId: string) => void;
   completarMision: (questId: string) => void;
   registrarRescate: (questId: string) => void;
+  /** Fija el destino de la misión desde el buscador de direcciones. */
+  fijarDestino: (questId: string, destino: DestinoCustom) => void;
+  /** Marca/desmarca una pregunta de la preparación previa. */
+  togglePreparacion: (questId: string, preguntaId: string) => void;
+  /** Cierra la preparación: habilita activar la misión. */
+  marcarPreparada: (questId: string) => void;
   /** Borra el progreso de todas las misiones (para pruebas). */
   reiniciarMisiones: () => void;
   resetearTodo: () => void;
@@ -363,18 +443,48 @@ export const useQuestStore = create<QuestState>()(
         set((s) => ({
           customs: [...s.customs.filter((c) => c.quest.id !== quest.id), { quest, dialogos }],
         })),
-      activar: (questId) =>
-        set((s) => {
-          const anterior = usePlayerStore.getState().jugador.misionActivaId;
-          const progresos = { ...s.progresos };
+      activar: (questId) => {
+        const s = get();
+        const quest = buscarQuest(questId);
+        const jugador = usePlayerStore.getState().jugador;
+        // Secundarias: categoría explícita o creadas por el jugador/POI.
+        const esSecundaria = !!quest && (quest.categoria === 'secundaria' || quest.id.startsWith('custom-'));
+        if (
+          esSecundaria &&
+          !jugador.secundariasActivas.includes(questId) &&
+          jugador.secundariasActivas.length >= MAX_SECUNDARIAS
+        ) {
+          return 'limite';
+        }
+
+        const progresos = { ...s.progresos };
+        if (!esSecundaria) {
+          const anterior = jugador.misionActivaId;
           if (anterior && anterior !== questId && progresos[anterior]?.estado === 'activa') {
             progresos[anterior] = { ...progresos[anterior], estado: 'disponible', updatedAt: new Date().toISOString() };
           }
-          const actual = progresos[questId] ?? nuevoProgreso();
-          progresos[questId] = { ...actual, estado: 'activa', updatedAt: new Date().toISOString() };
-          usePlayerStore.getState().fijarMisionActiva(questId);
-          return { progresos };
-        }),
+        }
+        const actual = progresos[questId] ?? nuevoProgreso();
+        progresos[questId] = { ...actual, estado: 'activa', updatedAt: new Date().toISOString() };
+        set({ progresos });
+        if (esSecundaria) usePlayerStore.getState().activarSecundaria(questId);
+        else usePlayerStore.getState().fijarMisionActiva(questId);
+        return 'ok';
+      },
+      cancelarMision: (questId) => {
+        const s = get();
+        const actual = s.progresos[questId];
+        if (!actual || actual.estado !== 'activa') return;
+        set({
+          progresos: {
+            ...s.progresos,
+            [questId]: { ...actual, estado: 'disponible', updatedAt: new Date().toISOString() },
+          },
+        });
+        const p = usePlayerStore.getState();
+        if (p.jugador.misionActivaId === questId) p.fijarMisionActiva(null);
+        else p.quitarSecundaria(questId);
+      },
       toggleCheck: (questId, itemId) =>
         set((s) => {
           const actual = s.progresos[questId] ?? nuevoProgreso();
@@ -434,6 +544,40 @@ export const useQuestStore = create<QuestState>()(
             progresos: { ...s.progresos, [questId]: { ...actual, estado: 'reprogramada', updatedAt: new Date().toISOString() } },
           };
         }),
+      fijarDestino: (questId, destino) =>
+        set((s) => {
+          const actual = s.progresos[questId] ?? nuevoProgreso();
+          return {
+            progresos: {
+              ...s.progresos,
+              [questId]: { ...actual, destinoCustom: { ...destino }, updatedAt: new Date().toISOString() },
+            },
+          };
+        }),
+      togglePreparacion: (questId, preguntaId) =>
+        set((s) => {
+          const actual = s.progresos[questId] ?? nuevoProgreso();
+          return {
+            progresos: {
+              ...s.progresos,
+              [questId]: {
+                ...actual,
+                preparacion: { ...(actual.preparacion ?? {}), [preguntaId]: !(actual.preparacion ?? {})[preguntaId] },
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          };
+        }),
+      marcarPreparada: (questId) =>
+        set((s) => {
+          const actual = s.progresos[questId] ?? nuevoProgreso();
+          return {
+            progresos: {
+              ...s.progresos,
+              [questId]: { ...actual, preparada: true, updatedAt: new Date().toISOString() },
+            },
+          };
+        }),
       reiniciarMisiones: () => {
         set({ progresos: {}, customs: [] });
         usePlayerStore.getState().limpiarMisiones();
@@ -450,8 +594,19 @@ export const useQuestStore = create<QuestState>()(
 
 import { dialogueById, quests as questsStatic } from './data';
 
-/** Catálogo completo: oficial + creadas localmente/comunitarias. */
+/** Catálogo visible: principales aptas al perfil + creadas localmente. */
 export function listaMisiones(): Quest[] {
+  const customs = useQuestStore.getState().customs.map((c) => c.quest);
+  const perfil = usePerfilStore.getState().perfil;
+  return [...questsStatic.filter((q) => questApta(q, perfil)), ...customs];
+}
+
+/**
+ * Catálogo del mapa: todas las principales + creadas localmente, sin filtro
+ * de perfil. Los pines son la forma de "elegir en el mapa" (ver onboarding),
+ * así que omitir el perfil nunca puede dejar el mapa vacío.
+ */
+export function listaMisionesMapa(): Quest[] {
   const customs = useQuestStore.getState().customs.map((c) => c.quest);
   return [...questsStatic, ...customs];
 }
@@ -544,11 +699,14 @@ export const useAlertStore = create<AlertState>()(
 
 interface SettingsState {
   sonido: boolean;
+  /** Música de fondo chiptune (loop procedural, arranca con un gesto). */
+  musica: boolean;
   /** Tema visual del mapa: automático por hora o fijo. */
   temaMapa: TemaMapa;
   /** Ambiente estacional: automático por fecha o fijo. */
   ambiente: Ambiente;
   toggleSonido: () => void;
+  toggleMusica: () => void;
   setTemaMapa: (t: TemaMapa) => void;
   setAmbiente: (a: Ambiente) => void;
 }
@@ -558,24 +716,102 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       sonido: true,
+      musica: true,
       temaMapa: 'auto',
       ambiente: 'auto',
       toggleSonido: () => set((s) => ({ sonido: !s.sonido })),
+      toggleMusica: () => set((s) => ({ musica: !s.musica })),
       setTemaMapa: (t) => set({ temaMapa: t }),
       setAmbiente: (a) => set({ ambiente: a }),
     }),
     {
       name: 'ruta-urbana/ajustes',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
-      // v1 guardaba `mapaTema: 'noche' | 'dia'`: se conserva como tema fijo.
+      // v3: música de fondo. v2: tema+ambiente. v1 guardaba `mapaTema`: se conserva como fijo.
       migrate: (persistido, version) => {
         const prev = (persistido ?? {}) as Record<string, unknown>;
         if (version < 2 && typeof prev.mapaTema === 'string') {
           prev.temaMapa = prev.mapaTema === 'dia' ? 'dia' : 'noche';
         }
+        if (version < 3 && typeof prev.musica !== 'boolean') {
+          prev.musica = true;
+        }
         delete prev.mapaTema;
         return prev as unknown as SettingsState;
+      },
+    },
+  ),
+);
+
+/* ── Perfil inicial (adaptación de misiones y lugares de interés) ──────────── */
+
+interface PerfilState {
+  perfil: Perfil;
+  completar: (p: Partial<Omit<Perfil, 'completado' | 'omitido' | 'updatedAt'>>) => void;
+  omitir: () => void;
+  reiniciar: () => void;
+}
+
+/** ¿Hay partida guardada de antes del onboarding (jugador, niebla o misiones)? */
+function hayProgresoPrevio(): boolean {
+  try {
+    for (const clave of ['ruta-urbana/jugador', 'ruta-urbana/exploracion', 'ruta-urbana/misiones']) {
+      const raw = localStorage.getItem(clave);
+      if (!raw) continue;
+      const s = JSON.parse(raw) as { state?: Record<string, unknown> };
+      const e = s.state ?? {};
+      if (
+        ((e['jugador'] as { xp?: number } | undefined)?.xp ?? 0) > 0 ||
+        ((e['celdasReveladas'] as number | undefined) ?? 0) > 0 ||
+        ((e['visited'] as unknown[] | undefined)?.length ?? 0) > 0 ||
+        Object.keys((e['progresos'] as Record<string, unknown> | undefined) ?? {}).length > 0
+      ) {
+        return true;
+      }
+    }
+  } catch {
+    /* localStorage ilegible: se trata como instalación nueva */
+  }
+  return false;
+}
+
+export const usePerfilStore = create<PerfilState>()(
+  persist(
+    (set) => ({
+      perfil: { ...PERFIL_VACIO },
+      completar: (p) =>
+        set((s) => ({
+          perfil: {
+            ...s.perfil,
+            ...p,
+            completado: true,
+            omitido: false,
+            updatedAt: new Date().toISOString(),
+          },
+        })),
+      omitir: () =>
+        set((s) => ({ perfil: { ...s.perfil, completado: true, omitido: true, updatedAt: new Date().toISOString() } })),
+      reiniciar: () => set({ perfil: { ...PERFIL_VACIO } }),
+    }),
+    {
+      name: 'ruta-urbana/perfil',
+      version: 1,
+      storage: createJSONStorage(() => localStorage),
+      migrate: (guardado) => {
+        const prev = (guardado ?? {}) as Partial<PerfilState>;
+        return { ...prev, perfil: { ...PERFIL_VACIO, ...(prev.perfil ?? {}) } } as PerfilState;
+      },
+      // Partidas anteriores al onboarding: si hay progreso guardado
+      // (jugador, niebla o misiones) y el perfil no está completado, se
+      // conserva el comportamiento previo —todas las misiones visibles—
+      // en vez de forzar el onboarding y vaciar el mapa. `migrate` no basta:
+      // nunca corre si la clave aún no existe en localStorage.
+      onRehydrateStorage: () => (rehidratado) => {
+        if (rehidratado?.perfil.completado || !hayProgresoPrevio()) return;
+        usePerfilStore.setState((s) => ({
+          perfil: { ...s.perfil, completado: true, updatedAt: new Date().toISOString() },
+        }));
       },
     },
   ),

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { mostrarAviso, pedirPermisoAvisos, textoAviso, vibrar } from './alerts';
 import { sonar } from './audio';
-import { questById } from './data';
 import { usePlayerPosition } from './geo';
-import { debeAlertar, evaluarProximidad, objetivosDe } from './proximity';
-import { useAlertStore, usePlayerStore, useSettingsStore } from './store';
+import { debeAlertar, evaluarProximidad, objetivosDe, type Evaluacion } from './proximity';
+import { PROGRESO_VACIO, buscarQuest, questConDestino, useAlertStore, usePlayerStore, useQuestStore, useSettingsStore } from './store';
+import type { Quest } from './types';
 
 /**
  * Motor de proximidad (Fase 3, versión PWA).
@@ -17,7 +17,8 @@ import { useAlertStore, usePlayerStore, useSettingsStore } from './store';
 export function useProximity() {
   const { efectiva, mode, permiso, real, mock, detalle, errorInfo, precisionM, seguro, reintentar } = usePlayerPosition();
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
-  const ultimasAlertas = useAlertStore((s) => s.ultimasAlertas);
+  const secundarias = usePlayerStore((s) => s.jugador.secundariasActivas);
+  const firmaSecundarias = secundarias.join(',');  const ultimasAlertas = useAlertStore((s) => s.ultimasAlertas);
   const dispararAlerta = useAlertStore((s) => s.dispararAlerta);
   const descartarAlerta = useAlertStore((s) => s.descartarAlerta);
   const avisosActivados = useAlertStore((s) => s.avisosActivados);
@@ -25,15 +26,29 @@ export function useProximity() {
   const ultimaEval = useRef<string>('');
 
   useEffect(() => {
-    if (!misionActivaId) return;
-    const quest = questById.get(misionActivaId);
-    if (!quest) return;
+    // Todas las activas: 1 principal + hasta 2 secundarias (ids desde la firma).
+    const secIds = firmaSecundarias ? firmaSecundarias.split(',') : [];
+    const activas = [...new Set([...(misionActivaId ? [misionActivaId] : []), ...secIds])];
+    if (activas.length === 0) return;
+    const progresos = useQuestStore.getState().progresos;
+    const quests = activas
+      .map((id) => {
+        const base = buscarQuest(id);
+        return base ? questConDestino(base, progresos[id] ?? PROGRESO_VACIO) : null;
+      })
+      .filter((q): q is Quest => q !== null);
+    if (quests.length === 0) return;
 
-    const firma = `${efectiva.lat.toFixed(5)},${efectiva.lng.toFixed(5)},${quest.id}`;
+    const firma = `${efectiva.lat.toFixed(5)},${efectiva.lng.toFixed(5)},${activas.join('|')}`;
     if (firma === ultimaEval.current) return;
     ultimaEval.current = firma;
 
-    const hit = evaluarProximidad(efectiva, objetivosDe(quest));
+    // El más cercano dentro de su radio, entre todas las activas.
+    let hit: Evaluacion | null = null;
+    for (const q of quests) {
+      const h = evaluarProximidad(efectiva, objetivosDe(q));
+      if (h && (!hit || h.distanciaM < hit.distanciaM)) hit = h;
+    }
     if (!hit) return;
 
     const clave = `${hit.objetivo.questId}:${hit.objetivo.id}`;
@@ -53,7 +68,7 @@ export function useProximity() {
       const { titulo, cuerpo } = textoAviso(hit.objetivo, hit.objetivo.questTitulo);
       mostrarAviso(titulo, cuerpo);
     }
-  }, [efectiva, misionActivaId, ultimasAlertas, dispararAlerta, avisosActivados]);
+  }, [efectiva, misionActivaId, firmaSecundarias, ultimasAlertas, dispararAlerta, avisosActivados]);
 
   return { alerta, descartarAlerta, efectiva, mode, permiso, real, mock, detalle, errorInfo, precisionM, seguro, reintentar };
 }
