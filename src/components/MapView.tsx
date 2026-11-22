@@ -83,8 +83,9 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const visitedRef = useRef<string[]>([]);
   const equipadoRef = useRef<Equipamiento>({});
   const sexoRef = useRef<Sexo>('m');
-  const { efectiva, mode, permiso, real, alerta, descartarAlerta } = useProximity();
+  const { efectiva, mode, permiso, real, detalle, precisionM, reintentar, alerta, descartarAlerta } = useProximity();
   const setMode = useExplorationStore((s) => s.setMode);
+  const centerMock = useExplorationStore((s) => s.centerMock);
   const visited = useExplorationStore((s) => s.visited);
   const resetFog = useExplorationStore((s) => s.resetFog);
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
@@ -411,6 +412,15 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
     mapRef.current?.setView([efectiva.lat, efectiva.lng], mapRef.current.getZoom(), { animate: true });
   };
 
+  /** Cambiar de modo siempre recentra en el personaje (GPS o PAD). */
+  const cambiarModo = (siguiente: typeof mode) => {
+    if (siguiente === 'joystick' && real) centerMock(real);
+    setSeguir(true);
+    setMode(siguiente);
+    const destino = siguiente === 'gps' ? (real ?? efectiva) : (real ?? efectiva);
+    mapRef.current?.setView([destino.lat, destino.lng], mapRef.current.getZoom(), { animate: true });
+  };
+
   const pedirAvisos = async () => {
     const ok = await activarAvisos();
     setPermisoAviso(permisoAvisos());
@@ -483,10 +493,10 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
         </div>
 
         <div className="flex gap-2">
-          <button onClick={() => setMode('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+          <button onClick={() => cambiarModo('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
             <Sprite svg={uiSvg('gps')} size={14} /> {mode === 'gps' && !real ? 'GPS…' : 'GPS'}
           </button>
-          <button onClick={() => setMode('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+          <button onClick={() => cambiarModo('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
             <Sprite svg={uiSvg('joystick')} size={14} /> PAD
           </button>
           <button onClick={resetFog} title="Reiniciar niebla" aria-label="Reiniciar niebla" className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-muted">
@@ -512,10 +522,20 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
         </div>
 
         {mode === 'gps' && permiso !== 'ok' && (
-          <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] text-ruta-valentia">
-            {permiso === 'denegado'
-              ? 'GPS bloqueado · permite ubicación en el navegador'
-              : 'Buscando GPS… sal al exterior y espera el fix'}
+          <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] leading-4 text-ruta-valentia">
+            {detalle === 'inseguro' ? (
+              <>GPS necesita HTTPS · en el celu abre la app por HTTPS, no por IP http</>
+            ) : detalle === 'permiso-denegado' || permiso === 'denegado' ? (
+              <>GPS bloqueado · permite ubicación en el navegador y toca GPS</>
+            ) : (
+              <>Buscando GPS… sal al exterior y espera el fix</>
+            )}
+            <button onClick={() => { reintentar(); centrar(); }} className="ml-2 underline">reintentar</button>
+          </div>
+        )}
+        {mode === 'gps' && permiso === 'ok' && precisionM != null && (
+          <div className="px-frame px-2 py-1 font-pixel text-[10px] text-ruta-muted">
+            GPS ±{Math.round(precisionM)} m
           </div>
         )}
         {mode === 'joystick' && permiso === 'denegado' && (
