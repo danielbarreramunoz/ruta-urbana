@@ -21,35 +21,38 @@ export function usePlayerPosition() {
   const ultimaCelda = useRef<string | null>(null);
 
   useEffect(() => {
-    if (mode !== 'gps' || !('geolocation' in navigator)) {
-      if (mode === 'gps' && !('geolocation' in navigator)) {
-        setPermiso('denegado');
-        setMode('joystick');
-      }
+    if (mode !== 'gps') return;
+    if (!('geolocation' in navigator)) {
+      setPermiso('denegado');
+      setMode('joystick');
       return;
     }
+    // Geolocalización web exige contexto seguro (HTTPS o localhost).
+    // En HTTP por IP LAN el watch falla sin fix: no insistir en silencio.
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setPermiso('denegado');
+      setMode('joystick');
+      return;
+    }
+    setPermiso('pendiente');
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setPermiso('ok');
         setReal({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
-      () => {
-        setPermiso('denegado');
-        setMode('joystick');
+      (err) => {
+        // Solo el bloqueo de permiso abandona el modo GPS.
+        // TIMEOUT (3) o POSITION_UNAVAILABLE (2) son transitorios
+        // (interior, primer fix lento): se sigue esperando el watch.
+        const code = (err as GeolocationPositionError | undefined)?.code;
+        if (code === 1) {
+          setPermiso('denegado');
+          setMode('joystick');
+        } else {
+          setPermiso('no-fijado');
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 },
-    );
-    // Fix inicial rápido (el watch puede tardar).
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setPermiso('ok');
-        setReal({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      },
-      () => {
-        setPermiso('no-fijado');
-        setMode('joystick');
-      },
-      { enableHighAccuracy: true, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, [mode, setMode]);

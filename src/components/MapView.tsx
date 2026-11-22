@@ -83,7 +83,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const visitedRef = useRef<string[]>([]);
   const equipadoRef = useRef<Equipamiento>({});
   const sexoRef = useRef<Sexo>('m');
-  const { efectiva, mode, permiso, alerta, descartarAlerta } = useProximity();
+  const { efectiva, mode, permiso, real, alerta, descartarAlerta } = useProximity();
   const setMode = useExplorationStore((s) => s.setMode);
   const visited = useExplorationStore((s) => s.visited);
   const resetFog = useExplorationStore((s) => s.resetFog);
@@ -484,7 +484,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
 
         <div className="flex gap-2">
           <button onClick={() => setMode('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
-            <Sprite svg={uiSvg('gps')} size={14} /> GPS
+            <Sprite svg={uiSvg('gps')} size={14} /> {mode === 'gps' && !real ? 'GPS…' : 'GPS'}
           </button>
           <button onClick={() => setMode('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
             <Sprite svg={uiSvg('joystick')} size={14} /> PAD
@@ -511,7 +511,14 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
           )}
         </div>
 
-        {(permiso === 'denegado' || permiso === 'no-fijado') && (
+        {mode === 'gps' && permiso !== 'ok' && (
+          <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] text-ruta-valentia">
+            {permiso === 'denegado'
+              ? 'GPS bloqueado · permite ubicación en el navegador'
+              : 'Buscando GPS… sal al exterior y espera el fix'}
+          </div>
+        )}
+        {mode === 'joystick' && permiso === 'denegado' && (
           <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] text-ruta-valentia">
             Sin GPS del navegador · usando pad
           </div>
