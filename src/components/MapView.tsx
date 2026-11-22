@@ -83,7 +83,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
   const visitedRef = useRef<string[]>([]);
   const equipadoRef = useRef<Equipamiento>({});
   const sexoRef = useRef<Sexo>('m');
-  const { efectiva, mode, permiso, real, detalle, precisionM, reintentar, alerta, descartarAlerta } = useProximity();
+  const { efectiva, mode, permiso, real, detalle, errorInfo, precisionM, reintentar, alerta, descartarAlerta } = useProximity();
   const setMode = useExplorationStore((s) => s.setMode);
   const centerMock = useExplorationStore((s) => s.centerMock);
   const visited = useExplorationStore((s) => s.visited);
@@ -530,6 +530,7 @@ export default function MapView({ onAbrirQuest }: { onAbrirQuest: (id: string) =
             ) : (
               <>Buscando GPS… sal al exterior y espera el fix</>
             )}
+            {errorInfo && <div className="mt-0.5 opacity-80">{errorInfo}</div>}
             <button onClick={() => { reintentar(); centrar(); }} className="ml-2 underline">reintentar</button>
           </div>
         )}

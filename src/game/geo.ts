@@ -23,8 +23,10 @@ export function usePlayerPosition() {
   const [real, setReal] = useState<LatLng | null>(null);
   const [precisionM, setPrecisionM] = useState<number | null>(null);
   const [detalle, setDetalle] = useState<DetalleGps>(null);
+  const [errorInfo, setErrorInfo] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const ultimaCelda = useRef<string | null>(null);
+  const huboFix = useRef(false);
 
   const seguro = typeof window === 'undefined' ? true : window.isSecureContext !== false;
 
@@ -33,41 +35,58 @@ export function usePlayerPosition() {
     if (!('geolocation' in navigator)) {
       setPermiso('denegado');
       setDetalle('sin-soporte');
+      setErrorInfo('sin geolocation en este navegador');
       return;
     }
     // Geolocalización web exige contexto seguro (HTTPS o localhost).
-    // En HTTP por IP LAN el watch nunca da fix: avisar en vez de
-    // insistir en silencio o patear a joystick sin explicación.
     if (typeof window !== 'undefined' && window.isSecureContext === false) {
       setPermiso('denegado');
       setDetalle('inseguro');
+      setErrorInfo('contexto inseguro (HTTP por IP)');
       return;
     }
     setPermiso((p) => (p === 'ok' ? p : 'pendiente'));
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setPermiso('ok');
-        setDetalle(null);
-        setReal({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setPrecisionM(pos.coords.accuracy ?? null);
-      },
-      (err) => {
-        // Solo el bloqueo de permiso abandona el modo GPS.
-        // TIMEOUT (3) o POSITION_UNAVAILABLE (2) son transitorios
-        // (interior, primer fix lento): se sigue esperando el watch.
-        const code = (err as GeolocationPositionError | undefined)?.code;
-        if (code === 1) {
-          setPermiso('denegado');
-          setDetalle('permiso-denegado');
-          setMode('joystick');
-        } else {
-          setPermiso('no-fijado');
-          setDetalle('sin-fix');
-        }
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
+    let cancelado = false;
+    const fijar = (pos: GeolocationPosition) => {
+      if (cancelado) return;
+      huboFix.current = true;
+      setPermiso('ok');
+      setDetalle(null);
+      setErrorInfo(null);
+      setReal({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      setPrecisionM(pos.coords.accuracy ?? null);
+    };
+    const fallar = (err: GeolocationPositionError, origen: string) => {
+      if (cancelado) return;
+      const code = err?.code;
+      setErrorInfo(`${origen} ${code ?? '?'}: ${err?.message ?? 'sin mensaje'}`);
+      if (code === 1) {
+        setPermiso('denegado');
+        setDetalle('permiso-denegado');
+        setMode('joystick');
+      } else {
+        setPermiso((p) => (p === 'ok' ? p : 'no-fijado'));
+        if (!huboFix.current) setDetalle('sin-fix');
+      }
+    };
+    // Watch fino (GPS). En el celu puede tardar o no resolver indoor.
+    const watchId = navigator.geolocation.watchPosition(fijar, (e) => fallar(e, 'watch'), {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 20000,
+    });
+    // Patada inicial por red (rápida, ±50-200 m): mueve el avatar aunque
+    // el GPS fino siga buscando. Su fallo no mata el watch.
+    navigator.geolocation.getCurrentPosition(fijar, (e) => fallar(e, 'red'), {
+      enableHighAccuracy: false,
+      maximumAge: 60000,
+      timeout: 12000,
+    });
+    return () => {
+      cancelado = true;
+      navigator.geolocation.clearWatch(watchId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, setMode, intento, seguro]);
 
   const efectiva: LatLng = mode === 'gps' && real ? real : mock;
@@ -80,5 +99,5 @@ export function usePlayerPosition() {
     }
   }, [efectiva, reveal]);
 
-  return { efectiva, real, mock, mode, permiso, detalle, precisionM, seguro, reintentar: () => setIntento((i) => i + 1) };
+  return { efectiva, real, mock, mode, permiso, detalle, errorInfo, precisionM, seguro, reintentar: () => setIntento((i) => i + 1) };
 }

@@ -15,7 +15,7 @@ import { useAlertStore, usePlayerStore, useSettingsStore } from './store';
  * - Limitación web honesta: sin la app abierta no hay geofencing en segundo plano.
  */
 export function useProximity() {
-  const { efectiva, mode, permiso, real, mock, detalle, precisionM, seguro, reintentar } = usePlayerPosition();
+  const { efectiva, mode, permiso, real, mock, detalle, errorInfo, precisionM, seguro, reintentar } = usePlayerPosition();
   const misionActivaId = usePlayerStore((s) => s.jugador.misionActivaId);
   const ultimasAlertas = useAlertStore((s) => s.ultimasAlertas);
   const dispararAlerta = useAlertStore((s) => s.dispararAlerta);
@@ -55,7 +55,7 @@ export function useProximity() {
     }
   }, [efectiva, misionActivaId, ultimasAlertas, dispararAlerta, avisosActivados]);
 
-  return { alerta, descartarAlerta, efectiva, mode, permiso, real, mock, detalle, precisionM, seguro, reintentar };
+  return { alerta, descartarAlerta, efectiva, mode, permiso, real, mock, detalle, errorInfo, precisionM, seguro, reintentar };
 }
 
 /** Activa los avisos del sistema (pide permiso de Notification una vez). */
