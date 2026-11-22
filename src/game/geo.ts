@@ -69,21 +69,35 @@ export function usePlayerPosition() {
         if (!huboFix.current) setDetalle('sin-fix');
       }
     };
-    // Watch fino (GPS). En el celu puede tardar o no resolver indoor.
+    // Watch fino (GPS). En Chrome Android el primer fix de alta precisión
+    // suele tardar más de 20 s: timeout largo para no matarlo con code 3.
     const watchId = navigator.geolocation.watchPosition(fijar, (e) => fallar(e, 'watch'), {
       enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 20000,
+      maximumAge: 10000,
+      timeout: 60000,
     });
-    // Patada inicial por red (rápida, ±50-200 m): mueve el avatar aunque
-    // el GPS fino siga buscando. Su fallo no mata el watch.
-    navigator.geolocation.getCurrentPosition(fijar, (e) => fallar(e, 'red'), {
-      enableHighAccuracy: false,
-      maximumAge: 60000,
-      timeout: 12000,
-    });
+    // Sondeo por red en bucle (rápido, ±50-200 m): aunque el watch fino se
+    // quede colgado (clásico code 3 en Chrome Android), esto mueve el avatar
+    // y lo sigue mientras caminas. Su fallo nunca mata el watch.
+    let pollTimer: number | undefined;
+    const pedirRed = () => {
+      if (cancelado) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          fijar(pos);
+          pollTimer = window.setTimeout(pedirRed, 5000);
+        },
+        (e) => {
+          fallar(e, 'red');
+          pollTimer = window.setTimeout(pedirRed, 5000);
+        },
+        { enableHighAccuracy: false, maximumAge: 10000, timeout: 25000 },
+      );
+    };
+    pedirRed();
     return () => {
       cancelado = true;
+      window.clearTimeout(pollTimer);
       navigator.geolocation.clearWatch(watchId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
