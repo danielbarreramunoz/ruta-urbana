@@ -338,7 +338,7 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
   const visitedRef = useRef<string[]>([]);
   const equipadoRef = useRef<Equipamiento>({});
   const sexoRef = useRef<Sexo>('m');
-  const { efectiva, mode, permiso, real, detalle, errorInfo, reintentar, alerta, descartarAlerta } = useProximity();
+  const { efectiva, mode, permiso, real, detalle, errorInfo, precisionM, reintentar, alerta, descartarAlerta } = useProximity();
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const setMode = useExplorationStore((s) => s.setMode);
@@ -1205,10 +1205,19 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
             ) : detalle === 'permiso-denegado' || permiso === 'denegado' ? (
               <>GPS bloqueado · permite ubicación en el navegador y toca GPS</>
             ) : (
-              <>Buscando GPS… sal al exterior y espera el fix</>
+              <>Buscando GPS… sal al exterior con vista al cielo y espera el fix (el primero tarda hasta 1 min)</>
             )}
             {errorInfo && <div className="mt-0.5 opacity-80">{errorInfo}</div>}
             <button onClick={() => { reintentar(); centrar(); }} className="ml-2 underline">reintentar</button>
+          </div>
+        )}
+        {mode === 'gps' && permiso === 'ok' && precisionM != null && (
+          <div className={`px-frame px-2 py-1 font-pixel text-[10px] leading-4 ${precisionM > 100 ? 'border-ruta-valentia text-ruta-valentia' : 'text-ruta-muted'}`}>
+            {precisionM > 100 ? (
+              <>GPS aproximado ±{Math.round(precisionM)} m · revisa “ubicación precisa” en Android y sal al exterior</>
+            ) : (
+              <>GPS ±{Math.round(precisionM)} m</>
+            )}
           </div>
         )}
         {mode === 'joystick' && permiso === 'denegado' && (

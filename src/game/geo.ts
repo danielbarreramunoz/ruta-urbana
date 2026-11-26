@@ -47,6 +47,8 @@ export function usePlayerPosition() {
   const huboFix = useRef(false);
   /** Último fix aceptado: el sondeo grueso por red no pisa un GPS fino reciente. */
   const mejorFix = useRef<{ acc: number; at: number } | null>(null);
+  /** El sondeo grueso solo acelera el primer fix: con GPS fino deja de molestar. */
+  const pollFino = useRef(false);
 
   const seguro = typeof window === 'undefined' ? true : window.isSecureContext !== false;
 
@@ -67,15 +69,28 @@ export function usePlayerPosition() {
     }
     setPermiso((p) => (p === 'ok' ? p : 'pendiente'));
     let cancelado = false;
+    let pollTimer: number | undefined;
+    // Cada intento parte de cero: sin esto un reintento heredaba el "fino"
+    // anterior y el sondeo grueso ya no arrancaba.
+    pollFino.current = false;
+    mejorFix.current = null;
+    huboFix.current = false;
     const fijar = (pos: GeolocationPosition, esRed: boolean) => {
       if (cancelado) return;
       const acc = pos.coords.accuracy ?? 9999;
       // Si hay un fix fino reciente, el sondeo por red (±50-200 m y con saltos
-      // entre antenas) no mueve el avatar: era el que pintaba niebla lejana.
+      // entre antenas) no mueve el avatar: era el que pintaba niebla lejana
+      // y congelaba el avance al caminar.
       const previo = mejorFix.current;
-      if (esRed && previo && Date.now() - previo.at < 30000 && previo.acc <= 50 && acc > previo.acc) return;
+      if (esRed && previo && Date.now() - previo.at < 60000 && previo.acc <= 60 && acc > previo.acc) return;
       mejorFix.current = { acc, at: Date.now() };
       huboFix.current = true;
+      // Con GPS fino el sondeo grueso ya cumplió (primer fix rápido): se
+      // detiene para que no pise el seguimiento del watch al caminar.
+      if (!esRed && acc <= 60 && !pollFino.current) {
+        pollFino.current = true;
+        if (pollTimer !== undefined) window.clearTimeout(pollTimer);
+      }
       setPermiso('ok');
       setDetalle(null);
       setErrorInfo(null);
@@ -85,7 +100,13 @@ export function usePlayerPosition() {
     const fallar = (err: GeolocationPositionError, origen: string) => {
       if (cancelado) return;
       const code = err?.code;
-      setErrorInfo(`${origen} ${code ?? '?'}: ${err?.message ?? 'sin mensaje'}`);
+      const ayuda =
+        code === 1
+          ? 'permiso denegado: permite ubicación para este sitio en Chrome'
+          : code === 2
+            ? 'sin posición: activa la ubicación del sistema y sal al exterior'
+            : 'timeout: sal al exterior con vista al cielo y espera el fix';
+      setErrorInfo(`${origen} ${code ?? '?'}: ${err?.message ?? 'sin mensaje'} · ${ayuda}`);
       if (code === 1) {
         setPermiso('denegado');
         setDetalle('permiso-denegado');
@@ -102,12 +123,12 @@ export function usePlayerPosition() {
       maximumAge: 10000,
       timeout: 60000,
     });
-    // Sondeo por red en bucle (rápido, ±50-200 m): aunque el watch fino se
-    // quede colgado (clásico code 3 en Chrome Android), esto mueve el avatar
-    // y lo sigue mientras caminas. Su fallo nunca mata el watch.
-    let pollTimer: number | undefined;
+    // Sondeo por red en bucle (rápido, ±50-200 m): acelera el primer fix
+    // aunque el watch fino se quede colgado (clásico code 3 en Chrome
+    // Android). Tras el primer GPS fino se detiene: si siguiera, sus saltos
+    // entre antenas taparían el avance real al caminar. Su fallo nunca mata el watch.
     const pedirRed = () => {
-      if (cancelado) return;
+      if (cancelado || pollFino.current) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           fijar(pos, true);
