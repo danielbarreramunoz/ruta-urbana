@@ -125,20 +125,22 @@ export function usePlayerPosition() {
     });
     // Sondeo por red en bucle (rápido, ±50-200 m): acelera el primer fix
     // aunque el watch fino se quede colgado (clásico code 3 en Chrome
-    // Android). Tras el primer GPS fino se detiene: si siguiera, sus saltos
-    // entre antenas taparían el avance real al caminar. Su fallo nunca mata el watch.
+    // Android). En PC sin GPS real este sondeo grueso es el que estabiliza
+    // primero la posición para listas y lugares. Tras el primer GPS fino se
+    // detiene: si siguiera, sus saltos entre antenas taparían el avance real
+    // al caminar. Su fallo nunca mata el watch.
     const pedirRed = () => {
       if (cancelado || pollFino.current) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           fijar(pos, true);
-          pollTimer = window.setTimeout(pedirRed, 5000);
+          pollTimer = window.setTimeout(pedirRed, 2500);
         },
         (e) => {
           fallar(e, 'red');
-          pollTimer = window.setTimeout(pedirRed, 5000);
+          pollTimer = window.setTimeout(pedirRed, 2500);
         },
-        { enableHighAccuracy: false, maximumAge: 10000, timeout: 25000 },
+        { enableHighAccuracy: false, maximumAge: 5000, timeout: 12000 },
       );
     };
     pedirRed();

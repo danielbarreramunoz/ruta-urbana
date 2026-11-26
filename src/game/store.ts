@@ -705,10 +705,13 @@ interface SettingsState {
   temaMapa: TemaMapa;
   /** Ambiente estacional: automático por fecha o fijo. */
   ambiente: Ambiente;
+  /** Mostrar el PAD de movimiento (modo foto: se oculta para capturas). */
+  mostrarPad: boolean;
   toggleSonido: () => void;
   toggleMusica: () => void;
   setTemaMapa: (t: TemaMapa) => void;
   setAmbiente: (a: Ambiente) => void;
+  toggleMostrarPad: () => void;
 }
 
 /** Preferencias UI (persistidas). */
@@ -719,16 +722,18 @@ export const useSettingsStore = create<SettingsState>()(
       musica: true,
       temaMapa: 'auto',
       ambiente: 'auto',
+      mostrarPad: true,
       toggleSonido: () => set((s) => ({ sonido: !s.sonido })),
       toggleMusica: () => set((s) => ({ musica: !s.musica })),
       setTemaMapa: (t) => set({ temaMapa: t }),
       setAmbiente: (a) => set({ ambiente: a }),
+      toggleMostrarPad: () => set((s) => ({ mostrarPad: !s.mostrarPad })),
     }),
     {
       name: 'ruta-urbana/ajustes',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
-      // v3: música de fondo. v2: tema+ambiente. v1 guardaba `mapaTema`: se conserva como fijo.
+      // v4: mostrar/ocultar PAD. v3: música de fondo. v2: tema+ambiente. v1 guardaba `mapaTema`: se conserva como fijo.
       migrate: (persistido, version) => {
         const prev = (persistido ?? {}) as Record<string, unknown>;
         if (version < 2 && typeof prev.mapaTema === 'string') {
@@ -736,6 +741,9 @@ export const useSettingsStore = create<SettingsState>()(
         }
         if (version < 3 && typeof prev.musica !== 'boolean') {
           prev.musica = true;
+        }
+        if (version < 4 && typeof prev.mostrarPad !== 'boolean') {
+          prev.mostrarPad = true;
         }
         delete prev.mapaTema;
         return prev as unknown as SettingsState;

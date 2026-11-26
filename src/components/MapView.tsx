@@ -359,6 +359,8 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
   const toggleSonido = useSettingsStore((s) => s.toggleSonido);
   const musica = useSettingsStore((s) => s.musica);
   const toggleMusica = useSettingsStore((s) => s.toggleMusica);
+  const mostrarPad = useSettingsStore((s) => s.mostrarPad);
+  const toggleMostrarPad = useSettingsStore((s) => s.toggleMostrarPad);
   const [musicaOn, setMusicaOn] = useState(() => musicaSonando());
   // El contexto solo se crea/reanuda en un gesto (politica de autoplay):
   // listener global, haya o no musica. Asi sonar() nunca crea contexto solo.
@@ -870,7 +872,6 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
   const [estadoCercanas, setEstadoCercanas] = useState<'buscando' | 'cargando' | 'listo'>('cargando');
   const [cercanas, setCercanas] = useState<Cercana[]>([]);
   const [verCercanas, setVerCercanas] = useState(false);
-  const [verLugares, setVerLugares] = useState(false);
   // Firma a ~111 m: recalcula al moverse de cuadra, no 10 veces por segundo.
   const firmaPos = `${efectiva.lat.toFixed(3)},${efectiva.lng.toFixed(3)}`;
   useEffect(() => {
@@ -1132,46 +1133,60 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
             <span className="font-pixel text-[10px] text-ruta-line">|</span>
             <span className="font-pixel text-[10px] text-ruta-xp">+{XP_POR_CELDA} XP</span>
           </div>
-          <button
-            onClick={() => (seguir ? setSeguir(false) : centrar())}
-            className={`px-btn px-2 py-1 font-pixel text-[10px] tracking-wider ${seguir ? 'px-btn--on' : ''}`}
-            title={seguir ? 'Dejar de seguir' : 'Centrar en tu posición'}
-          >
-            {seguir ? '◉ SIGUIENDO' : '○ CENTRAR'}
-          </button>
-        </div>
-
-        <div className="flex gap-2">
-          <button onClick={() => cambiarModo('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
-            <Sprite svg={uiSvg('gps')} size={14} /> {mode === 'gps' && !real ? 'GPS…' : 'GPS'}
-          </button>
-          <button onClick={() => cambiarModo('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
-            <Sprite svg={uiSvg('joystick')} size={14} /> PAD
-          </button>
-          {mode === 'joystick' && (
+          <div className="flex flex-none items-center gap-2">
             <button
-              onClick={() => setModoTeleport((v) => !v)}
-              aria-pressed={modoTeleport}
-              title="Teletransportarse (modo pruebas): toca el mapa"
-              aria-label="Teletransportarse"
-              className={`px-btn flex h-9 w-9 flex-none items-center justify-center font-pixel text-sm ${modoTeleport ? 'px-btn--on text-ruta-gold' : 'text-ruta-muted'}`}
+              onClick={() => setPanelControles((v) => !v)}
+              aria-expanded={panelControles}
+              aria-label="Controles y modo de posición"
+              title={`Controles · modo ${mode === 'gps' ? 'GPS' : 'PAD'}`}
+              className={`px-btn flex items-center gap-1.5 px-2 py-1 font-pixel text-[10px] tracking-wider ${panelControles ? 'px-btn--on' : 'text-ruta-muted'}`}
             >
-              ↗
+              <span aria-hidden>{mode === 'gps' ? '📡' : '🕹'}</span> {mode === 'gps' ? 'GPS' : 'PAD'} <span aria-hidden>⚙</span>
             </button>
-          )}
-          <button
-            onClick={() => setPanelControles((v) => !v)}
-            aria-expanded={panelControles}
-            aria-label="Más controles"
-            title="Más controles"
-            className={`px-btn flex h-9 w-9 flex-none items-center justify-center font-pixel text-base ${panelControles ? 'px-btn--on' : 'text-ruta-muted'}`}
-          >
-            ⚙
-          </button>
+            <button
+              onClick={() => (seguir ? setSeguir(false) : centrar())}
+              className={`px-btn px-2 py-1 font-pixel text-[10px] tracking-wider ${seguir ? 'px-btn--on' : ''}`}
+              title={seguir ? 'Dejar de seguir' : 'Centrar en tu posición'}
+            >
+              {seguir ? '◉ SIGUIENDO' : '○ CENTRAR'}
+            </button>
+          </div>
         </div>
 
         {panelControles && (
-          <div className="px-frame flex flex-wrap items-center gap-2 p-2">
+          <div className="px-frame space-y-2 p-2">
+            <div>
+              <div className="font-pixel text-[9px] tracking-widest text-ruta-muted">MODO DE POSICIÓN</div>
+              <div className="mt-1 flex gap-1">
+                <button onClick={() => cambiarModo('gps')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'gps' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                  <Sprite svg={uiSvg('gps')} size={14} /> {mode === 'gps' && !real ? 'GPS…' : 'GPS'}
+                </button>
+                <button onClick={() => cambiarModo('joystick')} className={`px-btn flex min-w-0 flex-1 items-center justify-center gap-2 py-2 font-pixel text-[11px] ${mode === 'joystick' ? 'px-btn--on' : 'text-ruta-muted'}`}>
+                  <Sprite svg={uiSvg('joystick')} size={14} /> PAD
+                </button>
+              </div>
+            </div>
+            {mode === 'joystick' && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setModoTeleport((v) => !v)}
+                  aria-pressed={modoTeleport}
+                  title="Teletransportarse (modo pruebas): toca el mapa"
+                  className={`px-btn min-w-0 flex-1 py-2 font-pixel text-[10px] ${modoTeleport ? 'px-btn--on text-ruta-gold' : 'text-ruta-muted'}`}
+                >
+                  ↗ TELETRANSPORTAR
+                </button>
+                <button
+                  onClick={toggleMostrarPad}
+                  aria-pressed={mostrarPad}
+                  title={mostrarPad ? 'Ocultar el PAD para fotos' : 'Mostrar el PAD'}
+                  className={`px-btn min-w-0 flex-1 py-2 font-pixel text-[10px] ${mostrarPad ? 'text-ruta-muted' : 'px-btn--on'}`}
+                >
+                  {mostrarPad ? 'OCULTAR PAD' : 'MOSTRAR PAD'}
+                </button>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
             <button onClick={resetFog} title="Reiniciar niebla" aria-label="Reiniciar niebla" className="px-btn flex h-9 w-9 flex-none items-center justify-center text-ruta-muted">
               <Sprite svg={uiSvg('fog')} size={16} />
             </button>
@@ -1195,6 +1210,7 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
                 <Sprite svg={uiSvg('bell')} size={16} />
               </button>
             )}
+            </div>
           </div>
         )}
 
@@ -1205,19 +1221,15 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
             ) : detalle === 'permiso-denegado' || permiso === 'denegado' ? (
               <>GPS bloqueado · permite ubicación en el navegador y toca GPS</>
             ) : (
-              <>Buscando GPS… sal al exterior con vista al cielo y espera el fix (el primero tarda hasta 1 min)</>
+              <>Buscando GPS… primer fix grueso en segundos, el fino puede tardar 1 min · <button onClick={() => cambiarModo('joystick')} className="underline">seguir en PAD mientras tanto</button></>
             )}
             {errorInfo && <div className="mt-0.5 opacity-80">{errorInfo}</div>}
             <button onClick={() => { reintentar(); centrar(); }} className="ml-2 underline">reintentar</button>
           </div>
         )}
-        {mode === 'gps' && permiso === 'ok' && precisionM != null && (
-          <div className={`px-frame px-2 py-1 font-pixel text-[10px] leading-4 ${precisionM > 100 ? 'border-ruta-valentia text-ruta-valentia' : 'text-ruta-muted'}`}>
-            {precisionM > 100 ? (
-              <>GPS aproximado ±{Math.round(precisionM)} m · revisa “ubicación precisa” en Android y sal al exterior</>
-            ) : (
-              <>GPS ±{Math.round(precisionM)} m</>
-            )}
+        {mode === 'gps' && permiso === 'ok' && precisionM != null && precisionM > 100 && (
+          <div className="px-frame border-ruta-valentia px-2 py-1 font-pixel text-[10px] leading-4 text-ruta-valentia">
+            <>GPS aproximado ±{Math.round(precisionM)} m · afinando el fix fino… <button onClick={() => cambiarModo('joystick')} className="underline">usar PAD</button></>
           </div>
         )}
         {mode === 'joystick' && permiso === 'denegado' && (
@@ -1335,9 +1347,25 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
               </button>
             </div>
           ))}
-          {verCercanas && estadoCercanas === 'listo' && poisCercanos.length > 0 && (
+          {verCercanas && estadoCercanas === 'listo' && (
             <div className="mt-2 border-t border-ruta-line pt-1.5">
-              <div className="font-pixel text-[8px] tracking-widest text-ruta-muted">SERVICIOS CERCA</div>
+              <div className="font-pixel text-[8px] tracking-widest text-ruta-muted">
+                SERVICIOS CERCA{poisStale ? ' (GUARDADOS)' : ''}
+              </div>
+              {(estadoPois === 'cargando' || estadoPois === 'espera') && poisCercanos.length === 0 && (
+                <div className="mt-1 font-pixel text-[10px] leading-4 text-ruta-muted">Cargando lugares…</div>
+              )}
+              {estadoPois === 'error' && poisCercanos.length === 0 && (
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="min-w-0 flex-1 font-pixel text-[10px] leading-4 text-ruta-muted">Lugares no disponibles</span>
+                  <button
+                    onClick={() => setIntentoPoi((n) => n + 1)}
+                    className="px-btn flex-none px-2 py-0.5 font-pixel text-[9px] text-ruta-gold"
+                  >
+                    REINTENTAR
+                  </button>
+                </div>
+              )}
               {poisCercanos.map((p) => (
                 <div key={p.id} className="mt-1 flex min-w-0 items-center gap-2">
                   <button onClick={() => setPoiSel(p)} className="block min-w-0 flex-1 text-left">
@@ -1360,50 +1388,6 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
               ))}
             </div>
           )}
-        </div>
-
-        {/* Lugares de interés de OSM: posibles misiones alrededor */}
-        <div className="px-frame p-2">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setVerLugares((v) => !v)}
-              aria-expanded={verLugares}
-              className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
-            >
-              <span className="truncate font-pixel text-[9px] tracking-widest text-ruta-muted">
-                {estadoPois === 'espera'
-                  ? '◌ LUGARES · ESPERANDO GPS'
-                  : estadoPois === 'cargando'
-                    ? '◌ BUSCANDO LUGARES…'
-                    : estadoPois === 'error'
-                      ? '○ LUGARES NO DISPONIBLES'
-                      : `★ LUGARES · ${poisOrdenados.length}${poisStale ? ' (guardados)' : ''}`}
-              </span>
-              <span className="font-pixel text-[10px] text-ruta-gold">{verLugares ? '▾' : '▸'}</span>
-            </button>
-            {estadoPois === 'error' && (
-              <button
-                onClick={() => setIntentoPoi((n) => n + 1)}
-                className="px-btn px-2 py-0.5 font-pixel text-[9px] text-ruta-gold"
-              >
-                REINTENTAR
-              </button>
-            )}
-          </div>
-          {verLugares && estadoPois === 'listo' && poisOrdenados.length === 0 && (
-            <div className="mt-1 font-pixel text-[10px] leading-4 text-ruta-muted">Sin datos de OSM en 3 km.</div>
-          )}
-          {verLugares && poisOrdenados.slice(0, 6).map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setPoiSel(p)}
-              className="mt-1 block w-full truncate text-left font-pixel text-[10px] leading-4 text-ruta-parchment"
-            >
-              <span className="text-ruta-gold">★</span> {p.nombre}
-              <span className="text-ruta-muted"> · {ETIQUETA_POI[p.categoria]}</span>
-              <span className="text-ruta-xp"> · {formatoDistancia(haversineM(efectiva, p))}</span>
-            </button>
-          ))}
         </div>
       </div>
 
@@ -1457,8 +1441,8 @@ export default function MapView({ onAbrirQuest, onCrearMision }: { onAbrirQuest:
         </div>
       </div>
 
-      {/* Pad */}
-      {mode === 'joystick' && !poiSel && (
+      {/* Pad (ocultable desde ⚙ para fotos) */}
+      {mode === 'joystick' && mostrarPad && !poiSel && (
         <div className="absolute bottom-4 right-3 z-[1100]">
           <Joystick onCenter={centrar} />
         </div>
